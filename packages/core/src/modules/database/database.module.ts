@@ -7,10 +7,10 @@ import {
 import { DynamicModule, Module, Scope, Type } from '@nestjs/common'
 import { ModuleRef } from '@nestjs/core'
 import { DatabaseAdapterFactory } from './database-adapter.factory'
+import { HistoryModule } from './modules/history/history.module'
 import { InternationalizationModule } from './modules/internationalization/internationalization.module'
 
-// Remove direct import of HistoryModule to avoid circular dependency
-const modules = [InternationalizationModule]
+const modules = [InternationalizationModule, HistoryModule]
 
 @Module({
 	imports: modules,

@@ -28,11 +28,16 @@
     "@magnet/common": "workspace:*",
     "@nestjs/common": "^11.0.8",
     "@nestjs/core": "^11.0.8",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/passport": "^11.0.5",
     "@repo/biome": "workspace:*",
     "@repo/tsup": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@types/passport-jwt": "^4.0.1",
+    "bcryptjs": "^3.0.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "passport-jwt": "^4.0.1",
     "rxjs": "^7.8.1"
   },
   "peerDependencies": {
