@@ -1,0 +1,24 @@
+{
+  "name": "@repo/tsup",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./config": {
+      "import": "./tsup.config.mjs",
+      "require": "./tsup.config.mjs",
+      "types": "./tsup.config.d.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.11.5",
+    "tsup": "^8.3.6"
+  },
+  "peerDependencies": {
+    "@swc/core": "^1.11.5",
+    "tsup": "^8.3.0"
+  }
+}

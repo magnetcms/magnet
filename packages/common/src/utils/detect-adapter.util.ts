@@ -1,0 +1,28 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+
+let cachedAdapter: 'mongoose' | 'typeorm' | null = null
+
+function isPackageInstalled(packageName: string): boolean {
+	try {
+		return existsSync(join(require.resolve(packageName), '../../'))
+	} catch {
+		return false
+	}
+}
+
+export function detectDatabaseAdapter(): 'mongoose' | 'typeorm' {
+	if (cachedAdapter) return cachedAdapter
+
+	if (isPackageInstalled('@magnet/adapter-mongoose')) {
+		cachedAdapter = 'mongoose'
+	} else if (isPackageInstalled('@magnet/adapter-typeorm')) {
+		cachedAdapter = 'typeorm'
+	} else {
+		throw new Error(
+			'❌ No supported database adapter found. Install @magnet/adapter-mongoose or @magnet/adapter-typeorm.',
+		)
+	}
+
+	return cachedAdapter
+}
