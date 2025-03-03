@@ -1,3 +1,2 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities; 
+@import '@magnet/ui/globals.css';
+@source "../../ui/src";

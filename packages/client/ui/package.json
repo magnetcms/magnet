@@ -6,15 +6,33 @@
   "type": "module",
   "exports": {
     "./globals.css": "./src/globals.css",
-    "./lib/*": "./src/lib/*.ts",
-    "./hooks/*": [
-      "./src/hooks/*.ts",
-      "./src/hooks/*.tsx"
-    ],
-    "./components/*": "./src/components/*.tsx"
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "import": "./dist/components/index.mjs",
+      "require": "./dist/components/index.js"
+    },
+    "./hooks": {
+      "types": "./dist/hooks/index.d.ts",
+      "import": "./dist/hooks/index.mjs",
+      "require": "./dist/hooks/index.js"
+    },
+    "./lib": {
+      "types": "./dist/lib/index.d.ts",
+      "import": "./dist/lib/index.mjs",
+      "require": "./dist/lib/index.js"
+    }
   },
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
   "scripts": {
-    "ui": "bunx shadcn@canary"
+    "ui": "bunx shadcn@canary",
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist"
   },
   "devDependencies": {
     "@repo/biome": "workspace:*",

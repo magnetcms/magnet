@@ -1,4 +1,5 @@
 import { resolve } from 'node:path'
+import { URL, fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
@@ -7,6 +8,18 @@ import { defineConfig } from 'vite'
 export default defineConfig({
 	plugins: [react(), tailwindcss()],
 	base: '/admin/',
+	resolve: {
+		alias: [
+			{
+				find: '@magnet/ui',
+				replacement: fileURLToPath(new URL('../ui/src', import.meta.url)),
+			},
+			{
+				find: '@',
+				replacement: fileURLToPath(new URL('../ui/src', import.meta.url)),
+			},
+		],
+	},
 	build: {
 		outDir: 'dist/client',
 		emptyOutDir: true,

@@ -1,6 +1,5 @@
 'use client'
 
-import { names } from '@magnet/utils/text'
 import {
 	ColumnDef,
 	flexRender,
@@ -16,8 +15,9 @@ import {
 	TableHeader,
 	TableRow,
 } from '@/components/ui/table'
+import { names } from '@/lib'
 
-interface DataTableProps<TData, TValue> {
+interface DataTableProps<TData, _> {
 	data: TData[]
 }
 

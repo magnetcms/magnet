@@ -1,3 +1,4 @@
+import { Button } from '@magnet/ui/components'
 import React from 'react'
 
 const HomePage: React.FC = () => {
@@ -11,6 +12,8 @@ const HomePage: React.FC = () => {
 						This is your admin dashboard. You can manage your application from
 						here.
 					</p>
+
+					<Button variant="outline">Click me</Button>
 				</div>
 			</div>
 		</div>
