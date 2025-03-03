@@ -2,11 +2,11 @@ import { All, Controller, Get, Next, Req, Res } from '@nestjs/common'
 import type { NextFunction, Request, Response } from 'express'
 import { AdminService } from './admin.service'
 
-@Controller('admin')
+@Controller()
 export class AdminController {
 	constructor(private readonly adminService: AdminService) {}
 
-	@All('*')
+	@All('admin/*')
 	async handleAllRequests(
 		@Req() req: Request,
 		@Res() res: Response,
@@ -24,8 +24,14 @@ export class AdminController {
 		}
 	}
 
-	@Get('')
+	@Get('admin')
 	async getAdmin(@Req() req: Request, @Res() res: Response) {
 		return res.redirect('/admin/')
+	}
+
+	@Get('initial-config')
+	async getInitialConfig(@Res() res: Response) {
+		const config = await this.adminService.getInitialConfig()
+		return res.send(config)
 	}
 }

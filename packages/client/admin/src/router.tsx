@@ -107,6 +107,9 @@ const basePath = import.meta.env.BASE_URL
 // Create the router with dynamic routes
 const router = createBrowserRouter(generateRoutes(), {
 	basename: basePath,
+	future: {
+		v7_relativeSplatPath: true,
+	},
 })
 
 export default router

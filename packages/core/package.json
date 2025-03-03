@@ -25,6 +25,7 @@
     "build": "tsup"
   },
   "devDependencies": {
+    "@magnet/admin": "workspace:*",
     "@magnet/common": "workspace:*",
     "@nestjs/common": "^11.0.8",
     "@nestjs/core": "^11.0.8",
