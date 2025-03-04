@@ -5,7 +5,7 @@ export const useSchema = <T extends Record<string, unknown>>(
 	schema: string,
 ) => {
 	return useQuery<T[], Error>({
-		queryKey: [schema],
+		queryKey: ['schemas', schema],
 		queryFn: () => fetcher<T[]>(`/${schema}s`),
 	})
 }

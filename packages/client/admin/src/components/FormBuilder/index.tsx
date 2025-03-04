@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { SchemaMetadata, SchemaProperty, UISide, UITab } from '@magnet/common'
 import {
-	Button,
 	FormProvider,
 	RHFText,
 	Separator,
@@ -112,8 +111,6 @@ export const FormBuilder = <T extends Record<string, unknown>>({
 		onSubmit(data as T)
 	}
 
-	console.log(methods.formState.errors)
-
 	return (
 		<FormProvider onSubmit={submitHandler} {...methods}>
 			<div className="grid grid-cols-1 md:grid-cols-[auto_320px] gap-6">
@@ -166,8 +163,6 @@ export const FormBuilder = <T extends Record<string, unknown>>({
 					</div>
 				)}
 			</div>
-
-			<Button type="submit">Submit</Button>
 		</FormProvider>
 	)
 }
