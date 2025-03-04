@@ -7,22 +7,50 @@ export const SCHEMAS_KEY = ['discovery', 'schemas']
 export const SETTINGS_KEY = ['discovery', 'settings']
 
 export const useControllers = () => {
-	return useQuery<ControllerMetadata[], Error>({
+	return useQuery<string[], Error>({
 		queryKey: CONTROLLERS_KEY,
-		queryFn: () => fetcher<ControllerMetadata[]>('/discovery/controllers'),
+		queryFn: () => fetcher<string[]>('/discovery/controllers'),
 	})
 }
 
 export const useSchemas = () => {
-	return useQuery<SchemaMetadata[], Error>({
+	return useQuery<string[], Error>({
 		queryKey: SCHEMAS_KEY,
-		queryFn: () => fetcher<SchemaMetadata[]>('/discovery/schemas'),
+		queryFn: () => fetcher<string[]>('/discovery/schemas'),
 	})
 }
 
 export const useSettings = () => {
-	return useQuery<SchemaMetadata[], Error>({
+	return useQuery<string[], Error>({
 		queryKey: SETTINGS_KEY,
-		queryFn: () => fetcher<SchemaMetadata[]>('/discovery/settings'),
+		queryFn: () => fetcher<string[]>('/discovery/settings'),
+	})
+}
+
+export const useSchema = (name: string) => {
+	return useQuery<SchemaMetadata | { error: string }, Error>({
+		queryKey: [...SCHEMAS_KEY, name],
+		queryFn: () =>
+			fetcher<SchemaMetadata | { error: string }>(`/discovery/schemas/${name}`),
+	})
+}
+
+export const useSetting = (name: string) => {
+	return useQuery<SchemaMetadata | { error: string }, Error>({
+		queryKey: [...SETTINGS_KEY, name],
+		queryFn: () =>
+			fetcher<SchemaMetadata | { error: string }>(
+				`/discovery/settings/${name}`,
+			),
+	})
+}
+
+export const useController = (name: string) => {
+	return useQuery<ControllerMetadata | { error: string }, Error>({
+		queryKey: [...CONTROLLERS_KEY, name],
+		queryFn: () =>
+			fetcher<ControllerMetadata | { error: string }>(
+				`/discovery/controllers/${name}`,
+			),
 	})
 }

@@ -1,6 +1,6 @@
-import { names } from '@magnet/utils'
-import { Outlet, useParams } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
 import { Head } from '~/components/Head'
+import { useContentManager } from '~/hooks/useContentManager'
 
 const actions = [
 	{
@@ -23,20 +23,22 @@ const actions = [
 ]
 
 const ContentManagerViewer = () => {
-	const { schema } = useParams()
+	const schema = useContentManager()
 
-	const name = names(String(schema))
+	if (!schema) {
+		return null
+	}
 
 	return (
 		<>
 			<Head
-				title={name.title}
+				title={schema.name.title}
 				actions={{
 					grouped: true,
 					items: actions,
 				}}
 			/>
-			<Outlet />
+			<Outlet context={schema} />
 		</>
 	)
 }

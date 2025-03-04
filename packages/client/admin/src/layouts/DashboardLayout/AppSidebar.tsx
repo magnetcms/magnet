@@ -1,4 +1,3 @@
-import { SchemaMetadata } from '@magnet/common'
 import {
 	Sidebar,
 	SidebarContent,
@@ -40,20 +39,18 @@ const staticData = {
 export const AppSidebar = ({
 	...props
 }: React.ComponentProps<typeof Sidebar>) => {
-	const { data: initialData } = useAdmin()
+	const { schemas, settings } = useAdmin()
 
-	const contentManagerItems = initialData?.schemas?.map(
-		(item: SchemaMetadata) => {
-			const name = names(item.name)
-			return {
-				title: name.title,
-				url: `/content-manager/${name.key}`,
-			}
-		},
-	) || [{ title: 'No Content Available', url: '/' }]
+	const contentManagerItems = schemas?.map((item: string) => {
+		const name = names(item)
+		return {
+			title: name.title,
+			url: `/content-manager/${name.key}`,
+		}
+	}) || [{ title: 'No Content Available', url: '/' }]
 
-	const settingsItems = initialData?.settings?.map((item: SchemaMetadata) => {
-		const name = names(item.name)
+	const settingsItems = settings?.map((item: string) => {
+		const name = names(item)
 		return {
 			title: name.title,
 			url: `/settings/${name.key}`,

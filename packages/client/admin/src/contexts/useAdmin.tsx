@@ -1,16 +1,11 @@
-import { ControllerMetadata, SchemaMetadata } from '@magnet/common'
 import React, { createContext, useContext, ReactNode } from 'react'
-import { useControllers, useSchemas, useSettings } from '~/hooks/useDiscovery'
+import { useSchemas, useSettings } from '~/hooks/useDiscovery'
 
 type AdminContextType = {
 	isLoading: boolean
 	error: Error | null
-	controllers: ControllerMetadata[] | undefined
-	schemas: SchemaMetadata[] | undefined
-	data?: {
-		schemas?: SchemaMetadata[]
-		settings?: SchemaMetadata[]
-	}
+	schemas?: string[]
+	settings?: string[]
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined)
@@ -18,12 +13,6 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined)
 export const AdminProvider: React.FC<{ children: ReactNode }> = ({
 	children,
 }) => {
-	const {
-		data: controllers,
-		isLoading: isControllersLoading,
-		error: controllersError,
-	} = useControllers()
-
 	const {
 		data: schemas,
 		isLoading: isSchemasLoading,
@@ -37,14 +26,10 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({
 	} = useSettings()
 
 	const value: AdminContextType = {
-		isLoading: isControllersLoading || isSchemasLoading || isSettingsLoading,
-		error: controllersError || schemasError || settingsError || null,
-		controllers,
+		isLoading: isSchemasLoading || isSettingsLoading,
+		error: schemasError || settingsError || null,
 		schemas,
-		data: {
-			schemas,
-			settings,
-		},
+		settings,
 	}
 
 	return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>
