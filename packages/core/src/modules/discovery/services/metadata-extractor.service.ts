@@ -37,7 +37,7 @@ export class MetadataExtractorService {
 			: []
 
 		return {
-			name: metatype.name ?? 'UnknownController',
+			name: metatype.name.toLowerCase() ?? 'unknowncontroller',
 			basePath,
 			methods,
 		}
@@ -77,7 +77,7 @@ export class MetadataExtractorService {
 		}
 
 		return {
-			name: method,
+			name: method.toLowerCase(),
 			returnType,
 			params: this.getParamDetails(instance.constructor, method),
 			httpMethod,
@@ -125,7 +125,7 @@ export class MetadataExtractorService {
 		)
 
 		return {
-			name: metatype.name ?? 'UnknownSchema',
+			name: metatype.name.toLowerCase() ?? 'unknownschema',
 			properties,
 		}
 	}

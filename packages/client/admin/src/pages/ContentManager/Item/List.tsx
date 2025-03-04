@@ -1,5 +1,5 @@
 import { Button } from '@magnet/ui/components'
-import { names } from '@magnet/ui/lib'
+import { names } from '@magnet/utils'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Head } from '~/components/Head'
 

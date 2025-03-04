@@ -8,10 +8,12 @@ import {
 	Put,
 	Query,
 } from '@nestjs/common'
+import { RestrictedRoute } from '~/decorators/restricted.route'
 import { HistoryService } from './history.service'
 import { History } from './schemas/history.schema'
 
 @Controller('history')
+@RestrictedRoute()
 export class HistoryController {
 	constructor(private readonly historyService: HistoryService) {}
 

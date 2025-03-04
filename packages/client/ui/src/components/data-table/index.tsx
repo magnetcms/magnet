@@ -15,7 +15,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '@/components/ui/table'
-import { names } from '@/lib'
+import { names } from '@magnet/utils'
 
 interface DataTableProps<TData, _> {
 	data: TData[]

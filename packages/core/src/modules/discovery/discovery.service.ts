@@ -29,18 +29,50 @@ export class DiscoveryService implements OnModuleInit {
 		this.settingsSchemas = settings
 	}
 
-	getDiscoveredControllers(): ControllerMetadata[] {
-		return this.controllers
+	getDiscoveredSchemas(): string[] {
+		return this.schemas
+			.filter((schema) => !EXCLUDED_SCHEMAS.includes(schema.name.toLowerCase()))
+			.map((schema) => schema.name)
 	}
 
-	getDiscoveredSchemas(): SchemaMetadata[] {
-		return this.schemas.filter(
-			(schema) => !EXCLUDED_SCHEMAS.includes(schema.name.toLowerCase()),
+	getDiscoveredSchema(name: string): SchemaMetadata | { error: string } {
+		return (
+			this.schemas.find((schema) => schema.name === name) || {
+				error: 'Schema not found',
+			}
 		)
 	}
 
-	getDiscoveredSettingsSchemas(): SchemaMetadata[] {
-		return this.settingsSchemas
+	getDiscoveredSettingsSchemas(): string[] {
+		return this.settingsSchemas.map((schema) => schema.name)
+	}
+
+	getDiscoveredSettingsSchemaNames(): string[] {
+		return this.settingsSchemas.map((schema) => schema.name)
+	}
+
+	getDiscoveredSettingsSchema(
+		name: string,
+	): SchemaMetadata | { error: string } {
+		return (
+			this.settingsSchemas.find((schema) => schema.name === name) || {
+				error: 'Schema not found',
+			}
+		)
+	}
+
+	getDiscoveredControllers(): string[] {
+		return this.controllers.map((controller) => controller.name)
+	}
+
+	getDiscoveredController(
+		name: string,
+	): ControllerMetadata | { error: string } {
+		return (
+			this.controllers.find((controller) => controller.name === name) || {
+				error: 'Controller not found',
+			}
+		)
 	}
 
 	getMethodDetails(

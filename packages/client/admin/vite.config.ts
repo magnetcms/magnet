@@ -13,6 +13,7 @@ export default defineConfig({
 				find: '~',
 				replacement: fileURLToPath(new URL('./src', import.meta.url)),
 			},
+			// UI
 			{
 				find: '@magnet/ui',
 				replacement: fileURLToPath(new URL('../ui/src', import.meta.url)),
@@ -20,6 +21,11 @@ export default defineConfig({
 			{
 				find: '@',
 				replacement: fileURLToPath(new URL('../ui/src', import.meta.url)),
+			},
+			// Utils
+			{
+				find: '@magnet/utils',
+				replacement: fileURLToPath(new URL('../../utils/src', import.meta.url)),
 			},
 		],
 	},

@@ -1,4 +1,4 @@
-import { names } from '@magnet/ui/lib'
+import { names } from '@magnet/utils'
 import { Outlet, useParams } from 'react-router-dom'
 import { Head } from '~/components/Head'
 

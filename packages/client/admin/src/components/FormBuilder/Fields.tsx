@@ -8,7 +8,7 @@ import {
 	RHFText,
 	RHFTextarea,
 } from '@magnet/ui/components'
-import { capitalize } from '@magnet/ui/lib'
+import { capitalize } from '@magnet/utils'
 import { ReactElement } from 'react'
 
 export const fieldRenderer: Record<

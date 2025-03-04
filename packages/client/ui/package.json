@@ -35,6 +35,7 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
+    "@magnet/utils": "workspace:*",
     "@repo/biome": "workspace:*",
     "@repo/tsup": "workspace:*",
     "@repo/typescript-config": "workspace:*",
