@@ -51,6 +51,49 @@ import { SettingsService } from './settings.service'
 	],
 })
 export class SettingsModule {
+	static forRoot(): DynamicModule {
+		return {
+			module: SettingsModule,
+			global: true,
+			imports: [
+				forwardRef(() => DatabaseModule),
+				forwardRef(() => DatabaseModule.forFeature(Setting)),
+			],
+			providers: [
+				{
+					provide: 'SETTING_MODEL',
+					useFactory: async (moduleRef: ModuleRef) => {
+						await new Promise((resolve) => setTimeout(resolve, 1000))
+
+						try {
+							const settingModel = await moduleRef.get(getModelToken(Setting), {
+								strict: false,
+							})
+
+							if (!settingModel) {
+								throw new Error(`Model for ${Setting.name} not found`)
+							}
+
+							return settingModel
+						} catch (error) {
+							console.error('Error getting Setting model:', error)
+							throw error
+						}
+					},
+					inject: [ModuleRef],
+				},
+				{
+					provide: SettingsService,
+					useFactory: (settingModel: Model<Setting>) => {
+						return new SettingsService(settingModel)
+					},
+					inject: ['SETTING_MODEL'],
+				},
+			],
+			exports: [SettingsService],
+		}
+	}
+
 	static forFeature(schemas: Type | Type[]): DynamicModule {
 		const schemaArray = Array.isArray(schemas) ? schemas : [schemas]
 

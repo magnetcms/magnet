@@ -1,16 +1,37 @@
 import {
+	InjectModel,
 	Model,
 	PROP_METADATA_KEY,
 	PropOptions,
 	SchemaSetting,
 	SettingType,
+	ValidationException,
 } from '@magnet/common'
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
+import { plainToInstance } from 'class-transformer'
+import { validate } from 'class-validator'
 import { Setting } from './schemas/setting.schema'
 
 @Injectable()
-export class SettingsService {
-	constructor(private readonly settingModel: Model<Setting>) {}
+export class SettingsService implements OnModuleInit {
+	private readonly logger = new Logger(SettingsService.name)
+	private registeredSchemas: Map<string, any> = new Map()
+
+	constructor(
+		@InjectModel(Setting) private readonly settingModel: Model<Setting>,
+	) {}
+
+	async onModuleInit() {
+		// Initialize all registered settings schemas
+		await this.initializeRegisteredSchemas()
+	}
+
+	private async initializeRegisteredSchemas() {
+		for (const [group, schema] of this.registeredSchemas.entries()) {
+			this.logger.log(`Initializing settings for group: ${group}`)
+			await this.registerSettingsFromSchema(group, schema)
+		}
+	}
 
 	async getSettings(): Promise<Record<string, Setting[]>> {
 		const settings: Setting[] = await this.settingModel.find()
@@ -38,8 +59,55 @@ export class SettingsService {
 		})
 	}
 
+	async getSetting(key: string): Promise<Setting | null> {
+		return await this.settingModel.findOne({ key })
+	}
+
 	async updateSetting(key: string, value: unknown): Promise<Setting | null> {
+		const setting = await this.getSetting(key)
+		if (!setting) {
+			throw new Error(`Setting with key "${key}" not found`)
+		}
+
+		// Validate the setting value against the registered schema
+		const [group] = this.findGroupByKey(key)
+		if (group) {
+			const schema = this.registeredSchemas.get(group)
+			if (schema) {
+				await this.validateSettingValue(key, value, schema)
+			}
+		}
+
 		return this.settingModel.update({ key }, { value })
+	}
+
+	private findGroupByKey(key: string): [string, Setting] | [] {
+		for (const [group, schema] of this.registeredSchemas.entries()) {
+			const instance = new schema()
+			if (key in instance) {
+				return [group, instance]
+			}
+		}
+		return []
+	}
+
+	private async validateSettingValue(
+		key: string,
+		value: unknown,
+		schema: any,
+	): Promise<void> {
+		// Create an instance of the schema with only the key we're updating
+		const instance = plainToInstance(schema, { [key]: value })
+		// Validate only the specific property
+		const errors = await validate(instance as object, {
+			skipMissingProperties: true,
+			whitelist: true,
+			forbidNonWhitelisted: true,
+		})
+
+		if (errors.length > 0) {
+			throw new ValidationException(errors)
+		}
 	}
 
 	async registerSetting(
@@ -72,6 +140,7 @@ export class SettingsService {
 		const settingsMap: Map<string, Setting> = new Map(
 			existingSettings.map((s: Setting) => [s.key, s]),
 		)
+
 		const bulkOperations: Promise<Setting>[] = settings.map(
 			(setting: SchemaSetting) => {
 				const existingSetting: Setting | undefined = settingsMap.get(
@@ -101,6 +170,7 @@ export class SettingsService {
 		group: string,
 		schema: new () => T,
 	): Promise<void> {
+		this.registeredSchemas.set(group, schema)
 		const instance: T = new schema()
 
 		const propMetadataArray: Array<{
@@ -142,5 +212,17 @@ export class SettingsService {
 		)
 
 		await this.registerSettings(group, settingsToRegister)
+	}
+
+	// New method to get settings as typed object
+	async getTypedSettings<T>(group: string, schema: new () => T): Promise<T> {
+		const settings = await this.getSettingsByGroup(group)
+		const result = new schema()
+
+		for (const setting of settings) {
+			;(result as any)[setting.key] = setting.value
+		}
+
+		return result
 	}
 }
