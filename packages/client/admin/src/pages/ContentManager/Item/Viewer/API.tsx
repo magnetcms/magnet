@@ -14,7 +14,7 @@ import {
 import { Check, Copy } from 'lucide-react'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Head } from '~/components/Head'
+import { ContentHeader } from '~/components/ContentHeader'
 import { useContentManager } from '~/hooks/useContentManager'
 
 const ContentManagerViewerAPI = () => {
@@ -25,6 +25,16 @@ const ContentManagerViewerAPI = () => {
 	if (!contentManager) return <Spinner />
 
 	const { name, schemaMetadata } = contentManager
+
+	// Base path for tab navigation
+	const basePath = `/content-manager/${name.key}/${id}`
+
+	// Tabs for navigation
+	const tabs = [
+		{ label: 'Edit', to: '' },
+		{ label: 'Versions', to: 'versions' },
+		{ label: 'API', to: 'api' },
+	]
 
 	// Type guard to ensure schemaMetadata has properties
 	const properties =
@@ -131,10 +141,7 @@ fetch('${apiBaseUrl}/${name.key}/${id || '{id}'}', {
   // Fields to update with localization
 ${
 	properties
-		.filter(
-			(p) =>
-				p.validations?.some((v) => v.name === 'intl') || p.ui?.type === 'intl',
-		)
+		.filter((p) => p.validations?.some((v) => v.name === 'intl'))
 		.slice(0, 3)
 		.map((p) => `  ${p.name}: "Localización en español"`)
 		.join(',\n') || '  // No localizable fields found'
@@ -188,109 +195,111 @@ fetch('${apiBaseUrl}/${name.key}/${id || '{id}'}?locale=es', {
 	}
 
 	return (
-		<div className="flex flex-col gap-4">
-			<Head title={`${name.title} API`} actions={null} />
+		<div className="flex flex-col w-full min-h-0">
+			<ContentHeader basePath={basePath} title={name.title} tabs={tabs} />
 
-			<Card>
-				<CardHeader>
-					<CardTitle>API Reference</CardTitle>
-					<CardDescription>
-						Use these API endpoints to interact with {name.title} content
-						programmatically.
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<Tabs defaultValue="get-all">
-						<TabsList className="w-full justify-start mb-4 overflow-auto">
+			<div className="flex-1 overflow-y-auto p-6">
+				<Card>
+					<CardHeader>
+						<CardTitle>API Reference</CardTitle>
+						<CardDescription>
+							Use these API endpoints to interact with {name.title} content
+							programmatically.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<Tabs defaultValue="get-all">
+							<TabsList className="w-full justify-start mb-4 overflow-auto">
+								{endpoints.map((endpoint) => (
+									<TabsTrigger key={endpoint.id} value={endpoint.id}>
+										{endpoint.method} {endpoint.name}
+									</TabsTrigger>
+								))}
+							</TabsList>
+
 							{endpoints.map((endpoint) => (
-								<TabsTrigger key={endpoint.id} value={endpoint.id}>
-									{endpoint.method} {endpoint.name}
-								</TabsTrigger>
+								<TabsContent key={endpoint.id} value={endpoint.id}>
+									<div className="space-y-4">
+										<div>
+											<p className="text-sm font-medium">Endpoint</p>
+											<div className="flex items-center justify-between mt-1 p-2 border rounded-md bg-muted/50">
+												<code className="text-sm">
+													<span className="text-green-600 font-semibold">
+														{endpoint.method}
+													</span>{' '}
+													{apiBaseUrl}
+													{endpoint.path}
+												</code>
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={() =>
+														copyToClipboard(
+															`${apiBaseUrl}${endpoint.path}`,
+															`url-${endpoint.id}`,
+														)
+													}
+												>
+													{copied[`url-${endpoint.id}`] ? (
+														<Check className="h-4 w-4" />
+													) : (
+														<Copy className="h-4 w-4" />
+													)}
+												</Button>
+											</div>
+										</div>
+
+										<div>
+											<p className="text-sm font-medium">Description</p>
+											<p className="text-sm mt-1">{endpoint.description}</p>
+										</div>
+
+										<div>
+											<div className="flex items-center justify-between">
+												<p className="text-sm font-medium">Example</p>
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={() =>
+														copyToClipboard(endpoint.code, endpoint.id)
+													}
+												>
+													{copied[endpoint.id] ? (
+														<>
+															<Check className="h-4 w-4 mr-2" />
+															Copied!
+														</>
+													) : (
+														<>
+															<Copy className="h-4 w-4 mr-2" />
+															Copy Code
+														</>
+													)}
+												</Button>
+											</div>
+											<pre className="mt-1 p-3 border rounded-md bg-black text-white overflow-x-auto text-xs">
+												{endpoint.code}
+											</pre>
+										</div>
+
+										{endpoint.id === 'get-locale' && (
+											<div className="text-sm mt-4 p-3 border rounded-md bg-muted/50">
+												<p className="font-medium mb-1">Available Locales</p>
+												<ul className="list-disc list-inside">
+													<li>English (en) - Default</li>
+													<li>Spanish (es)</li>
+													<li>French (fr)</li>
+													<li>German (de)</li>
+												</ul>
+											</div>
+										)}
+									</div>
+								</TabsContent>
 							))}
-						</TabsList>
-
-						{endpoints.map((endpoint) => (
-							<TabsContent key={endpoint.id} value={endpoint.id}>
-								<div className="space-y-4">
-									<div>
-										<p className="text-sm font-medium">Endpoint</p>
-										<div className="flex items-center justify-between mt-1 p-2 border rounded-md bg-muted/50">
-											<code className="text-sm">
-												<span className="text-green-600 font-semibold">
-													{endpoint.method}
-												</span>{' '}
-												{apiBaseUrl}
-												{endpoint.path}
-											</code>
-											<Button
-												variant="ghost"
-												size="sm"
-												onClick={() =>
-													copyToClipboard(
-														`${apiBaseUrl}${endpoint.path}`,
-														`url-${endpoint.id}`,
-													)
-												}
-											>
-												{copied[`url-${endpoint.id}`] ? (
-													<Check className="h-4 w-4" />
-												) : (
-													<Copy className="h-4 w-4" />
-												)}
-											</Button>
-										</div>
-									</div>
-
-									<div>
-										<p className="text-sm font-medium">Description</p>
-										<p className="text-sm mt-1">{endpoint.description}</p>
-									</div>
-
-									<div>
-										<div className="flex items-center justify-between">
-											<p className="text-sm font-medium">Example</p>
-											<Button
-												variant="ghost"
-												size="sm"
-												onClick={() =>
-													copyToClipboard(endpoint.code, endpoint.id)
-												}
-											>
-												{copied[endpoint.id] ? (
-													<>
-														<Check className="h-4 w-4 mr-2" />
-														Copied!
-													</>
-												) : (
-													<>
-														<Copy className="h-4 w-4 mr-2" />
-														Copy Code
-													</>
-												)}
-											</Button>
-										</div>
-										<pre className="mt-1 p-3 border rounded-md bg-black text-white overflow-x-auto text-xs">
-											{endpoint.code}
-										</pre>
-									</div>
-
-									{endpoint.id === 'get-locale' && (
-										<div className="text-sm mt-4 p-3 border rounded-md bg-muted/50">
-											<p className="font-medium mb-1">Available Locales</p>
-											<ul className="list-disc list-inside">
-												<li>English (en) - Default</li>
-												<li>Spanish (es)</li>
-												<li>French (fr)</li>
-												<li>German (de)</li>
-											</ul>
-										</div>
-									)}
-								</div>
-							</TabsContent>
-						))}
-					</Tabs>
-				</CardContent>
-			</Card>
+						</Tabs>
+					</CardContent>
+				</Card>
+			</div>
 		</div>
 	)
 }

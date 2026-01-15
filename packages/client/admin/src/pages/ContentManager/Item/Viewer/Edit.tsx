@@ -1,16 +1,15 @@
 import { SchemaMetadata } from '@magnet/common'
-import { Button, Separator, Spinner } from '@magnet/ui/components'
+import { Spinner } from '@magnet/ui/components'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { ContentHeader } from '~/components/ContentHeader'
 import { FormBuilder } from '~/components/FormBuilder'
-import { Head } from '~/components/Head'
-import { LocaleSwitcher, type LocaleOption } from '~/components/LocaleSwitcher'
-import { StatusIndicator } from '~/components/StatusIndicator'
+import type { LocaleOption } from '~/components/LocaleSwitcher'
+import type { ContentData, LocaleStatus } from '~/core/adapters/types'
 import { useAdapter } from '~/core/provider/MagnetProvider'
 import { useContentManager } from '~/hooks/useContentManager'
-import type { ContentData, LocaleStatus } from '~/core/adapters/types'
 
 const ContentManagerViewerEdit = () => {
 	const { id: documentId, schema: schemaName } = useParams()
@@ -21,14 +20,17 @@ const ContentManagerViewerEdit = () => {
 
 	// State for locale and status
 	const [currentLocale, setCurrentLocale] = useState('en')
-	const [currentStatus, setCurrentStatus] = useState<'draft' | 'published'>('draft')
+	const [currentStatus, setCurrentStatus] = useState<'draft' | 'published'>(
+		'draft',
+	)
 
 	// Get schema metadata and name information
 	const contentManager = useContentManager()
 	if (!contentManager) return <Spinner />
 
 	const { name, schemaMetadata } = contentManager
-	const schemaOptions = schemaMetadata?.options
+	const schemaOptions =
+		'options' in schemaMetadata ? schemaMetadata.options : undefined
 	const hasI18n = schemaOptions?.i18n !== false
 	const hasVersioning = schemaOptions?.versioning !== false
 
@@ -42,8 +44,8 @@ const ContentManagerViewerEdit = () => {
 	// Convert configured locales to LocaleOption format
 	const availableLocales: LocaleOption[] = useMemo(() => {
 		if (!localesConfig) return [{ code: 'en', name: 'English' }]
-		return localesConfig.configured.map(code => {
-			const locale = localesConfig.available.find(l => l.value === code)
+		return localesConfig.configured.map((code) => {
+			const locale = localesConfig.available.find((l) => l.value === code)
 			return { code, name: locale?.key ?? code }
 		})
 	}, [localesConfig])
@@ -51,17 +53,43 @@ const ContentManagerViewerEdit = () => {
 	// Fetch locale statuses for the document (only if i18n is enabled)
 	const { data: localeStatuses } = useQuery({
 		queryKey: ['content', schemaName, documentId, 'locales'],
-		queryFn: () => adapter.content.getLocaleStatuses(name.key, documentId as string),
+		queryFn: () =>
+			adapter.content.getLocaleStatuses(name.key, documentId as string),
 		enabled: !isCreating && !!documentId && hasI18n,
 	})
 
+	// Get current locale status
+	const currentLocaleStatus = localeStatuses?.[currentLocale] as
+		| LocaleStatus
+		| undefined
+
+	// Determine which status to actually fetch from the API
+	// If user wants draft but no draft exists, fetch published as base for new draft
+	const effectiveStatus = (() => {
+		if (!hasVersioning) return undefined
+		if (currentStatus === 'draft') {
+			// If no draft exists but published does, fetch published as the base
+			if (!currentLocaleStatus?.hasDraft && currentLocaleStatus?.hasPublished) {
+				return 'published'
+			}
+			return 'draft'
+		}
+		return currentStatus
+	})()
+
 	// Fetch item if editing
 	const { data: item, isLoading: isLoadingItem } = useQuery({
-		queryKey: ['content', schemaName, documentId, hasI18n ? currentLocale : undefined, hasVersioning ? currentStatus : undefined],
+		queryKey: [
+			'content',
+			schemaName,
+			documentId,
+			hasI18n ? currentLocale : undefined,
+			hasVersioning ? effectiveStatus : undefined,
+		],
 		queryFn: () =>
 			adapter.content.get<ContentData>(name.key, documentId as string, {
 				...(hasI18n && { locale: currentLocale }),
-				...(hasVersioning && { status: currentStatus }),
+				...(hasVersioning && { status: effectiveStatus }),
 			}),
 		enabled: !isCreating && !!documentId,
 	})
@@ -70,14 +98,20 @@ const ContentManagerViewerEdit = () => {
 	const { data: versions } = useQuery({
 		queryKey: ['content', schemaName, documentId, 'versions', currentLocale],
 		queryFn: () =>
-			adapter.content.getVersions(name.key, documentId as string, currentLocale),
+			adapter.content.getVersions(
+				name.key,
+				documentId as string,
+				currentLocale,
+			),
 		enabled: !isCreating && !!documentId && hasVersioning,
 	})
 
 	// Create mutation
 	const createMutation = useMutation({
 		mutationFn: (data: ContentData) =>
-			adapter.content.create<ContentData & { documentId?: string; id?: string }>(name.key, data, {
+			adapter.content.create<
+				ContentData & { documentId?: string; id?: string }
+			>(name.key, data, {
 				...(hasI18n && { locale: currentLocale }),
 			}),
 		onSuccess: (data) => {
@@ -154,8 +188,16 @@ const ContentManagerViewerEdit = () => {
 
 	// Add locale mutation
 	const addLocaleMutation = useMutation({
-		mutationFn: ({ locale, initialData }: { locale: string; initialData: ContentData }) =>
-			adapter.content.addLocale(name.key, documentId as string, locale, initialData),
+		mutationFn: ({
+			locale,
+			initialData,
+		}: { locale: string; initialData: ContentData }) =>
+			adapter.content.addLocale(
+				name.key,
+				documentId as string,
+				locale,
+				initialData,
+			),
 		onSuccess: (_, { locale }) => {
 			toast.success('Locale added', {
 				description: `${locale} translation was created`,
@@ -190,12 +232,32 @@ const ContentManagerViewerEdit = () => {
 	const handleAddLocale = (locale: string) => {
 		const currentItem = Array.isArray(item) ? item[0] : item
 		// Strip system fields, keep only user data
-		const { id, _id, documentId: _docId, locale: _locale, status, createdAt, updatedAt, publishedAt, createdBy, updatedBy, __v, ...userData } = currentItem || {}
+		const {
+			id,
+			_id,
+			documentId: _docId,
+			locale: _locale,
+			status,
+			createdAt,
+			updatedAt,
+			publishedAt,
+			createdBy,
+			updatedBy,
+			__v,
+			...userData
+		} = currentItem || {}
 		addLocaleMutation.mutate({ locale, initialData: userData as ContentData })
 	}
 
-	// Get current locale status
-	const currentLocaleStatus = localeStatuses?.[currentLocale] as LocaleStatus | undefined
+	// Trigger form submission
+	const handleSave = () => {
+		const form = document.querySelector('form')
+		if (form) {
+			form.dispatchEvent(
+				new Event('submit', { cancelable: true, bubbles: true }),
+			)
+		}
+	}
 
 	// Loading state
 	if (!isCreating && isLoadingItem) {
@@ -208,108 +270,144 @@ const ContentManagerViewerEdit = () => {
 		publishMutation.isPending ||
 		unpublishMutation.isPending
 
-	return (
-		<div className="flex flex-col gap-4 w-full">
-			<Head
-				title={isCreating ? `Create ${name.title}` : `Edit ${name.title}`}
-				actions={
-					<div className="flex items-center gap-2">
-						{/* Cancel button */}
-						<Button
-							variant="outline"
-							onClick={() => navigate(`/content-manager/${name.key}`)}
-						>
-							Cancel
-						</Button>
+	// Base path for tab navigation
+	const basePath = `/content-manager/${name.key}/${documentId}`
 
-						{/* Save button */}
-						<Button
-							disabled={isMutating}
-							onClick={() => {
-								const form = document.querySelector('form')
-								if (form)
-									form.dispatchEvent(
-										new Event('submit', { cancelable: true, bubbles: true }),
-									)
-							}}
-						>
-							{createMutation.isPending || updateMutation.isPending
-								? 'Saving...'
-								: 'Save'}
-						</Button>
-					</div>
+	// Tabs for navigation
+	const tabs = isCreating
+		? undefined
+		: [
+				{ label: 'Edit', to: '' },
+				{ label: 'Versions', to: 'versions' },
+				{ label: 'API', to: 'api' },
+			]
+
+	// More menu items (publish/unpublish actions)
+	const moreMenuItems = []
+	if (!isCreating && hasVersioning) {
+		if (currentStatus === 'draft') {
+			moreMenuItems.push({
+				label: 'Publish',
+				onClick: () => publishMutation.mutate(),
+			})
+		}
+		if (currentLocaleStatus?.hasPublished) {
+			moreMenuItems.push({
+				label: 'Unpublish',
+				onClick: () => unpublishMutation.mutate(),
+				variant: 'destructive' as const,
+			})
+		}
+	}
+
+	// Get current item data
+	const currentItem = Array.isArray(item) ? item[0] : item
+
+	return (
+		<div className="flex flex-col w-full min-h-0">
+			<ContentHeader
+				basePath={basePath}
+				title={isCreating ? `Create ${name.title}` : name.title}
+				status={hasVersioning ? currentStatus : undefined}
+				lastEdited={
+					typeof currentItem?.updatedAt === 'string' ||
+					currentItem?.updatedAt instanceof Date
+						? currentItem.updatedAt
+						: undefined
 				}
+				tabs={tabs}
+				onDiscard={() => navigate(`/content-manager/${name.key}`)}
+				onSave={handleSave}
+				isSaving={isMutating}
+				saveLabel={isCreating ? 'Create' : 'Save changes'}
+				localeProps={
+					hasI18n && !isCreating
+						? {
+								currentLocale,
+								locales: availableLocales,
+								localeStatuses,
+								onLocaleChange: handleLocaleChange,
+								onAddLocale: handleAddLocale,
+								disabled: isMutating || addLocaleMutation.isPending,
+							}
+						: undefined
+				}
+				moreMenuItems={moreMenuItems.length > 0 ? moreMenuItems : undefined}
 			/>
 
-			{/* Locale switcher and status indicator - only show if i18n or versioning is enabled */}
-			{!isCreating && (hasI18n || hasVersioning) && (
-				<div className="bg-card border rounded-md p-4 flex flex-wrap items-center justify-between gap-4">
-					<div className="flex items-center gap-4">
-						{/* Locale selector - only show if i18n is enabled */}
-						{hasI18n && (
-							<LocaleSwitcher
-								currentLocale={currentLocale}
-								locales={availableLocales}
-								localeStatuses={localeStatuses}
-								onLocaleChange={handleLocaleChange}
-								onAddLocale={handleAddLocale}
-								disabled={isMutating || addLocaleMutation.isPending}
-							/>
-						)}
-
-						{/* Status toggle - only show if versioning is enabled */}
-						{hasVersioning && (
-							<div className="flex items-center gap-2">
-								<Button
-									variant={currentStatus === 'draft' ? 'default' : 'outline'}
-									size="sm"
-									onClick={() => setCurrentStatus('draft')}
-									disabled={!currentLocaleStatus?.hasDraft}
-								>
-									Draft
-								</Button>
-								<Button
-									variant={currentStatus === 'published' ? 'default' : 'outline'}
-									size="sm"
-									onClick={() => setCurrentStatus('published')}
-									disabled={!currentLocaleStatus?.hasPublished}
-								>
-									Published
-								</Button>
-							</div>
-						)}
+			{/* Status toggle for versioning - shown below header when needed */}
+			{!isCreating && hasVersioning && (
+				<div className="px-6 py-3 border-b border-border bg-muted/30 flex items-center gap-4">
+					<span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+						Viewing:
+					</span>
+					<div className="flex items-center gap-1 bg-background rounded-md p-0.5 border">
+						<button
+							type="button"
+							onClick={() => setCurrentStatus('draft')}
+							className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+								currentStatus === 'draft'
+									? 'bg-foreground text-background'
+									: 'text-muted-foreground hover:text-foreground'
+							}`}
+						>
+							Draft
+							{!currentLocaleStatus?.hasDraft &&
+								currentLocaleStatus?.hasPublished && (
+									<span className="ml-1 text-[10px] opacity-60">(new)</span>
+								)}
+						</button>
+						<button
+							type="button"
+							onClick={() => setCurrentStatus('published')}
+							disabled={!currentLocaleStatus?.hasPublished}
+							className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+								currentStatus === 'published'
+									? 'bg-foreground text-background'
+									: 'text-muted-foreground hover:text-foreground disabled:opacity-50'
+							}`}
+						>
+							Published
+						</button>
 					</div>
-
-					{/* Status indicator with publish/unpublish - only show if versioning is enabled */}
-					{hasVersioning && (
-						<StatusIndicator
-							status={currentStatus}
-							hasPublished={currentLocaleStatus?.hasPublished}
-							onPublish={() => publishMutation.mutate()}
-							onUnpublish={() => unpublishMutation.mutate()}
-							isPublishing={publishMutation.isPending}
-							isUnpublishing={unpublishMutation.isPending}
-							disabled={isMutating}
-						/>
+					{versions && versions.length > 0 && (
+						<span className="text-xs text-muted-foreground">
+							{versions.length} version(s)
+							{hasI18n ? ` for ${currentLocale}` : ''}
+						</span>
 					)}
 				</div>
 			)}
 
-			{/* Version info - only show if versioning is enabled */}
-			{!isCreating && hasVersioning && versions && versions.length > 0 && (
-				<div className="text-sm text-muted-foreground">
-					{versions.length} version(s){hasI18n ? ` for ${currentLocale}` : ''}
-				</div>
-			)}
-
-			<Separator />
-
 			{/* Content form */}
-			<FormBuilder
-				schema={schemaMetadata as SchemaMetadata}
-				onSubmit={handleSubmit}
-				initialValues={Array.isArray(item) ? item[0] : item}
-			/>
+			<div className="flex-1 overflow-y-auto p-6">
+				<FormBuilder
+					schema={schemaMetadata as SchemaMetadata}
+					onSubmit={handleSubmit}
+					initialValues={currentItem}
+					metadata={
+						!isCreating
+							? {
+									createdAt:
+										typeof currentItem?.createdAt === 'string' ||
+										currentItem?.createdAt instanceof Date
+											? currentItem.createdAt
+											: undefined,
+									updatedAt:
+										typeof currentItem?.updatedAt === 'string' ||
+										currentItem?.updatedAt instanceof Date
+											? currentItem.updatedAt
+											: undefined,
+									publishedAt:
+										typeof currentItem?.publishedAt === 'string' ||
+										currentItem?.publishedAt instanceof Date
+											? currentItem.publishedAt
+											: undefined,
+								}
+							: undefined
+					}
+				/>
+			</div>
 		</div>
 	)
 }

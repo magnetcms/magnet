@@ -1,10 +1,12 @@
-import { cn } from '@/lib/utils'
+'use client'
+
 import { format } from 'date-fns'
 import { CalendarIcon } from 'lucide-react'
-import { ReactElement } from 'react'
+import { type ReactNode, useMemo } from 'react'
 import { useFormContext } from 'react-hook-form'
-import { Button } from '../ui/button'
-import { Calendar } from '../ui/calendar'
+
+import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
 import {
 	FormControl,
 	FormDescription,
@@ -12,24 +14,81 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from '../ui/form'
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
+} from '@/components/ui/form'
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from '@/components/ui/popover'
+import { cn } from '@/lib'
 
 type Props = {
 	name: string
-	label: string
-	description?: ReactElement | string
+	label: ReactNode
+	description?: ReactNode
+	placeholder?: string
+	disabled?: boolean
+	formItemClassName?: string
+	buttonClassName?: string
+	disableDate?: (date: Date) => boolean
+	minDate?: Date
+	maxDate?: Date
 }
 
-export const RHFDatePicker = ({ name, label, description }: Props) => {
+export const RHFDatePicker = ({
+	name,
+	label,
+	description,
+	placeholder = 'Pick a date',
+	disabled,
+	formItemClassName,
+	buttonClassName,
+	disableDate,
+	minDate,
+	maxDate,
+}: Props) => {
 	const { control } = useFormContext()
+
+	const mergedDisable = useMemo(() => {
+		return (date: Date) => {
+			if (disabled) {
+				return true
+			}
+
+			// Compare dates at midnight for accurate date-only comparison
+			const dateAtMidnight = new Date(date)
+			dateAtMidnight.setHours(0, 0, 0, 0)
+
+			if (minDate) {
+				const minDateAtMidnight = new Date(minDate)
+				minDateAtMidnight.setHours(0, 0, 0, 0)
+				if (dateAtMidnight < minDateAtMidnight) {
+					return true
+				}
+			}
+
+			if (maxDate) {
+				const maxDateAtMidnight = new Date(maxDate)
+				maxDateAtMidnight.setHours(0, 0, 0, 0)
+				if (dateAtMidnight > maxDateAtMidnight) {
+					return true
+				}
+			}
+
+			if (disableDate) {
+				return disableDate(date)
+			}
+
+			return false
+		}
+	}, [disabled, disableDate, minDate, maxDate])
 
 	return (
 		<FormField
 			name={name}
 			control={control}
 			render={({ field }) => (
-				<FormItem className="gap-1">
+				<FormItem className={formItemClassName ?? 'gap-1'}>
 					<FormLabel>{label}</FormLabel>
 					<Popover>
 						<PopoverTrigger asChild>
@@ -39,12 +98,14 @@ export const RHFDatePicker = ({ name, label, description }: Props) => {
 									className={cn(
 										'w-full pl-3 text-left font-normal',
 										!field.value && 'text-muted-foreground',
+										buttonClassName,
 									)}
+									disabled={disabled}
 								>
 									{field.value ? (
 										format(field.value, 'PPP')
 									) : (
-										<span>Pick a date</span>
+										<span>{placeholder}</span>
 									)}
 									<CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
 								</Button>
@@ -55,9 +116,7 @@ export const RHFDatePicker = ({ name, label, description }: Props) => {
 								mode="single"
 								selected={field.value}
 								onSelect={field.onChange}
-								disabled={(date) =>
-									date > new Date() || date < new Date('1900-01-01')
-								}
+								disabled={mergedDisable}
 								initialFocus
 							/>
 						</PopoverContent>

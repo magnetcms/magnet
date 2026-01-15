@@ -1,32 +1,37 @@
+'use client'
+
 import {
-  FieldValues,
-  FormProvider as Form,
-  SubmitHandler,
-  UseFormReturn,
+	FieldValues,
+	FormProvider as Form,
+	SubmitHandler,
+	UseFormReturn,
 } from 'react-hook-form'
 
-import clsx from 'clsx'
+import { cn } from '@/lib'
 
 type Props<T extends FieldValues> = {
-  children: React.ReactNode
-  onSubmit: SubmitHandler<T>
-  className?: string
+	children: React.ReactNode
+	onSubmit: SubmitHandler<T>
+	className?: string
+	id?: string
 } & UseFormReturn<T>
 
 export const FormProvider = <T extends FieldValues>({
-  children,
-  className,
-  onSubmit,
-  ...methods
+	children,
+	className,
+	id,
+	onSubmit,
+	...methods
 }: Props<T>) => {
-  return (
-    <Form {...methods}>
-      <form
-        onSubmit={methods.handleSubmit(onSubmit)}
-        className={clsx(className)}
-      >
-        {children}
-      </form>
-    </Form>
-  )
+	return (
+		<Form {...methods}>
+			<form
+				id={id}
+				onSubmit={methods.handleSubmit(onSubmit)}
+				className={cn(className)}
+			>
+				{children}
+			</form>
+		</Form>
+	)
 }

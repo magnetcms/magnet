@@ -1,6 +1,8 @@
+'use client'
+
+import { type InputHTMLAttributes, type ReactNode } from 'react'
 import { useFormContext } from 'react-hook-form'
 
-import { ReactElement } from 'react'
 import {
 	FormControl,
 	FormDescription,
@@ -8,17 +10,23 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from '../ui/form'
-import { Input } from '../ui/input'
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib'
 
-type Props = {
+type InputProps = Omit<
+	InputHTMLAttributes<HTMLInputElement>,
+	'name' | 'value' | 'defaultValue'
+>
+
+type Props = InputProps & {
 	name: string
 	label: string
-	placeholder?: string
-	description?: ReactElement | string
-	type?: string
-	disabled?: boolean
-	required?: boolean
+	description?: ReactNode
+	formItemClassName?: string
+	inputClassName?: string
+	prefix?: ReactNode
+	suffix?: ReactNode
 }
 
 export const RHFText = ({
@@ -29,6 +37,18 @@ export const RHFText = ({
 	type,
 	disabled,
 	required,
+	formItemClassName,
+	inputClassName,
+	prefix,
+	suffix,
+	min,
+	max,
+	step,
+	onChange,
+	onBlur,
+	inputMode,
+	autoComplete,
+	...rest
 }: Props) => {
 	const { control } = useFormContext()
 
@@ -36,22 +56,100 @@ export const RHFText = ({
 		<FormField
 			name={name}
 			control={control}
-			render={({ field }) => (
-				<FormItem className="gap-1">
-					<FormLabel>{label}</FormLabel>
-					<FormControl>
-						<Input
-							type={type}
-							placeholder={placeholder}
-							disabled={disabled}
-							required={required}
-							{...field}
-						/>
-					</FormControl>
-					<FormDescription>{description}</FormDescription>
-					<FormMessage />
-				</FormItem>
-			)}
+			render={({ field }) => {
+				const { className: restClassName, ...inputProps } = rest
+
+				const hasPrefixOrSuffix = prefix || suffix
+
+				return (
+					<FormItem className={cn('gap-2', formItemClassName)}>
+						<FormLabel>{label}</FormLabel>
+						<FormControl>
+							{hasPrefixOrSuffix ? (
+								<div className="relative">
+									{prefix && (
+										<span className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex items-center text-muted-foreground pointer-events-none">
+											{prefix}
+										</span>
+									)}
+									<Input
+										id={field.name}
+										type={type}
+										placeholder={placeholder}
+										disabled={disabled}
+										required={required}
+										value={field.value ?? ''}
+										onChange={(event) => {
+											if (type === 'number') {
+												const value = event.target.value
+												const numericValue =
+													value === '' ? undefined : Number(value)
+												field.onChange(numericValue)
+											} else {
+												field.onChange(event.target.value)
+											}
+											onChange?.(event)
+										}}
+										onBlur={(event) => {
+											field.onBlur()
+											onBlur?.(event)
+										}}
+										inputMode={inputMode}
+										autoComplete={autoComplete}
+										min={min}
+										max={max}
+										step={step}
+										className={cn(
+											prefix && 'pl-7',
+											suffix && 'pr-8',
+											inputClassName ?? restClassName,
+										)}
+										{...inputProps}
+									/>
+									{suffix && (
+										<span className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex items-center text-muted-foreground pointer-events-none">
+											{suffix}
+										</span>
+									)}
+								</div>
+							) : (
+								<Input
+									id={field.name}
+									type={type}
+									placeholder={placeholder}
+									disabled={disabled}
+									required={required}
+									value={field.value ?? ''}
+									onChange={(event) => {
+										if (type === 'number') {
+											const value = event.target.value
+											const numericValue =
+												value === '' ? undefined : Number(value)
+											field.onChange(numericValue)
+										} else {
+											field.onChange(event.target.value)
+										}
+										onChange?.(event)
+									}}
+									onBlur={(event) => {
+										field.onBlur()
+										onBlur?.(event)
+									}}
+									inputMode={inputMode}
+									autoComplete={autoComplete}
+									min={min}
+									max={max}
+									step={step}
+									className={inputClassName ?? restClassName}
+									{...inputProps}
+								/>
+							)}
+						</FormControl>
+						{description && <FormDescription>{description}</FormDescription>}
+						<FormMessage />
+					</FormItem>
+				)
+			}}
 		/>
 	)
 }

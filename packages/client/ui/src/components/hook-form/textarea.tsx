@@ -1,6 +1,8 @@
+'use client'
+
+import { type ReactNode, type TextareaHTMLAttributes } from 'react'
 import { useFormContext } from 'react-hook-form'
 
-import { ReactElement } from 'react'
 import {
 	FormControl,
 	FormDescription,
@@ -8,15 +10,20 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from '../ui/form'
-import { Textarea } from '../ui/textarea'
+} from '@/components/ui/form'
+import { Textarea } from '@/components/ui/textarea'
 
-type Props = {
+type TextareaProps = Omit<
+	TextareaHTMLAttributes<HTMLTextAreaElement>,
+	'name' | 'value' | 'defaultValue'
+>
+
+type Props = TextareaProps & {
 	name: string
 	label: string
-	placeholder?: string
-	description?: ReactElement | string
-	disabled?: boolean
+	description?: ReactNode
+	formItemClassName?: string
+	textareaClassName?: string
 }
 
 export const RHFTextarea = ({
@@ -25,6 +32,13 @@ export const RHFTextarea = ({
 	placeholder,
 	description,
 	disabled,
+	required,
+	rows,
+	formItemClassName,
+	textareaClassName,
+	onBlur,
+	onChange,
+	...rest
 }: Props) => {
 	const { control } = useFormContext()
 
@@ -32,21 +46,36 @@ export const RHFTextarea = ({
 		<FormField
 			name={name}
 			control={control}
-			render={({ field }) => (
-				<FormItem className="gap-1">
-					<FormLabel>{label}</FormLabel>
-					<FormControl>
-						<Textarea
-							placeholder={placeholder}
-							disabled={disabled}
-							className="resize-none"
-							{...field}
-						/>
-					</FormControl>
-					<FormDescription>{description}</FormDescription>
-					<FormMessage />
-				</FormItem>
-			)}
+			render={({ field }) => {
+				const { className: restClassName, ...textareaProps } = rest
+
+				return (
+					<FormItem className={formItemClassName ?? 'gap-1'}>
+						<FormLabel>{label}</FormLabel>
+						<FormControl>
+							<Textarea
+								placeholder={placeholder}
+								disabled={disabled}
+								required={required}
+								rows={rows}
+								value={field.value ?? ''}
+								onBlur={(event) => {
+									field.onBlur()
+									onBlur?.(event)
+								}}
+								onChange={(event) => {
+									field.onChange(event)
+									onChange?.(event)
+								}}
+								className={textareaClassName ?? restClassName ?? 'resize-none'}
+								{...textareaProps}
+							/>
+						</FormControl>
+						{description && <FormDescription>{description}</FormDescription>}
+						<FormMessage />
+					</FormItem>
+				)
+			}}
 		/>
 	)
 }

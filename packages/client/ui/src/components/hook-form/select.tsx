@@ -1,5 +1,8 @@
-import { ReactElement } from 'react'
+'use client'
+
+import { type ReactNode } from 'react'
 import { useFormContext } from 'react-hook-form'
+
 import {
 	FormControl,
 	FormDescription,
@@ -7,24 +10,29 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from '../ui/form'
+} from '@/components/ui/form'
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from '../ui/select'
-import { Checkbox } from '../ui/checkbox'
-import { cn } from '../../lib/utils'
+} from '@/components/ui/select'
+import { cn } from '@/lib'
+
+type Option = { value: string; label: ReactNode }
 
 type RHFSelectProps = {
 	name: string
 	label: string
-	options: { value: string; label: string }[]
-	description?: ReactElement | string
+	options: Option[]
+	description?: ReactNode
+	placeholder?: string
 	disabled?: boolean
-	multiple?: boolean
+	required?: boolean
+	formItemClassName?: string
+	triggerClassName?: string
+	onValueChange?: (value: string) => void
 }
 
 export const RHFSelect = ({
@@ -32,89 +40,37 @@ export const RHFSelect = ({
 	label,
 	options,
 	description,
+	placeholder = 'Select an option',
 	disabled,
-	multiple,
+	required,
+	formItemClassName,
+	triggerClassName,
+	onValueChange,
 }: RHFSelectProps) => {
 	const { control } = useFormContext()
 
-	// Multi-select implementation using checkboxes
-	if (multiple) {
-		return (
-			<FormField
-				name={name}
-				control={control}
-				render={({ field }) => {
-					const selectedValues: string[] = Array.isArray(field.value)
-						? field.value
-						: field.value
-							? [field.value]
-							: []
-
-					const handleToggle = (value: string) => {
-						const newValues = selectedValues.includes(value)
-							? selectedValues.filter((v) => v !== value)
-							: [...selectedValues, value]
-						field.onChange(newValues)
-					}
-
-					return (
-						<FormItem className="gap-1">
-							<FormLabel>{label}</FormLabel>
-							<FormControl>
-								<div className="border rounded-md p-3 space-y-2">
-									{options.map((option) => {
-										const optionId = `${name}-${option.value}`
-										return (
-											<div
-												key={option.value}
-												className={cn(
-													'flex items-center space-x-2 p-2 rounded hover:bg-muted',
-													disabled && 'opacity-50',
-												)}
-											>
-												<Checkbox
-													id={optionId}
-													checked={selectedValues.includes(option.value)}
-													disabled={disabled}
-													onCheckedChange={() => handleToggle(option.value)}
-												/>
-												<label
-													htmlFor={optionId}
-													className="text-sm cursor-pointer"
-												>
-													{option.label}
-												</label>
-											</div>
-										)
-									})}
-								</div>
-							</FormControl>
-							<FormDescription>{description}</FormDescription>
-							<FormMessage />
-						</FormItem>
-					)
-				}}
-			/>
-		)
-	}
-
-	// Single select implementation
 	return (
 		<FormField
 			name={name}
 			control={control}
 			render={({ field }) => (
-				<FormItem className="gap-1">
-					<FormLabel>{label}</FormLabel>
+				<FormItem className={cn('flex flex-col gap-2', formItemClassName)}>
+					<FormLabel className="h-3.5">{label}</FormLabel>
 					<FormControl>
 						<Select
-							onValueChange={field.onChange}
-							defaultValue={field.value}
+							value={field.value ?? undefined}
+							onValueChange={(value) => {
+								field.onChange(value)
+								onValueChange?.(value)
+							}}
 							disabled={disabled}
-							value={field.value}
 						>
-							<SelectTrigger>
-								<SelectValue placeholder="Select an option" />
+							<SelectTrigger
+								className={triggerClassName ?? 'w-full'}
+								aria-required={required}
+								data-required={required ? 'true' : undefined}
+							>
+								<SelectValue placeholder={placeholder} />
 							</SelectTrigger>
 							<SelectContent>
 								{options.map((option) => (
@@ -125,7 +81,7 @@ export const RHFSelect = ({
 							</SelectContent>
 						</Select>
 					</FormControl>
-					<FormDescription>{description}</FormDescription>
+					{description && <FormDescription>{description}</FormDescription>}
 					<FormMessage />
 				</FormItem>
 			)}

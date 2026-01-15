@@ -1,8 +1,10 @@
-import { cn } from '@/lib/utils'
+'use client'
+
 import { Check, ChevronsUpDown } from 'lucide-react'
-import { ReactElement } from 'react'
+import { type ReactNode } from 'react'
 import { useFormContext } from 'react-hook-form'
-import { Button } from '../ui/button'
+
+import { Button } from '@/components/ui/button'
 import {
 	Command,
 	CommandEmpty,
@@ -10,7 +12,7 @@ import {
 	CommandInput,
 	CommandItem,
 	CommandList,
-} from '../ui/command'
+} from '@/components/ui/command'
 import {
 	FormControl,
 	FormDescription,
@@ -18,27 +20,51 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from '../ui/form'
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
+} from '@/components/ui/form'
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from '@/components/ui/popover'
+import { cn } from '@/lib'
 
-type Option = { label: string; value: string }
+type Option = { label: ReactNode; value: string }
 
 type Props = {
 	name: string
 	label: string
 	options: Option[]
-	description?: ReactElement | string
+	description?: ReactNode
+	placeholder?: string
+	emptyState?: ReactNode
+	searchPlaceholder?: string
+	disabled?: boolean
+	formItemClassName?: string
+	buttonClassName?: string
+	onValueChange?: (value: string) => void
 }
 
-export const RHFCombobox = ({ name, label, options, description }: Props) => {
-	const { control, setValue } = useFormContext()
+export const RHFCombobox = ({
+	name,
+	label,
+	options,
+	description,
+	placeholder = 'Select option',
+	emptyState = 'No option found.',
+	searchPlaceholder = 'Search option...',
+	disabled,
+	formItemClassName,
+	buttonClassName,
+	onValueChange,
+}: Props) => {
+	const { control } = useFormContext()
 
 	return (
 		<FormField
 			name={name}
 			control={control}
 			render={({ field }) => (
-				<FormItem className="flex flex-col">
+				<FormItem className={formItemClassName ?? 'flex flex-col'}>
 					<FormLabel>{label}</FormLabel>
 					<Popover>
 						<PopoverTrigger asChild>
@@ -47,29 +73,34 @@ export const RHFCombobox = ({ name, label, options, description }: Props) => {
 									variant="outline"
 									// biome-ignore lint/a11y/useSemanticElements: This is a combobox
 									role="combobox"
+									disabled={disabled}
 									className={cn(
-										'w-[200px] justify-between',
+										'w-full justify-between',
 										!field.value && 'text-muted-foreground',
+										buttonClassName,
 									)}
 								>
 									{field.value
 										? options.find((opt) => opt.value === field.value)?.label
-										: 'Select option'}
+										: placeholder}
 									<ChevronsUpDown className="opacity-50" />
 								</Button>
 							</FormControl>
 						</PopoverTrigger>
-						<PopoverContent className="w-[200px] p-0">
+						<PopoverContent className="w-full p-0">
 							<Command>
-								<CommandInput placeholder="Search option..." className="h-9" />
+								<CommandInput placeholder={searchPlaceholder} className="h-9" />
 								<CommandList>
-									<CommandEmpty>No option found.</CommandEmpty>
+									<CommandEmpty>{emptyState}</CommandEmpty>
 									<CommandGroup>
 										{options.map(({ label, value }) => (
 											<CommandItem
 												key={value}
-												value={label}
-												onSelect={() => setValue(name, value)}
+												value={typeof label === 'string' ? label : value}
+												onSelect={() => {
+													field.onChange(value)
+													onValueChange?.(value)
+												}}
 											>
 												{label}
 												<Check
