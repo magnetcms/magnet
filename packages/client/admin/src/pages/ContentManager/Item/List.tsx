@@ -26,6 +26,7 @@ import { useContentManager } from '~/hooks/useContentManager'
 
 interface ContentItem {
 	id: string
+	documentId?: string
 	[key: string]: unknown
 }
 
@@ -53,8 +54,8 @@ const ContentManagerList = () => {
 
 	// Delete mutation
 	const deleteMutation = useMutation({
-		mutationFn: (id: string) => {
-			return adapter.content.delete(name.key, id)
+		mutationFn: (item: ContentItem) => {
+			return adapter.content.delete(name.key, item.documentId || item.id)
 		},
 		onSuccess: () => {
 			toast('Content deleted', {
@@ -149,7 +150,7 @@ const ContentManagerList = () => {
 						<DropdownMenuContent align="end">
 							<DropdownMenuItem
 								onClick={() =>
-									navigate(`/content-manager/${name.key}/${item.id}`)
+									navigate(`/content-manager/${name.key}/${item.documentId || item.id}`)
 								}
 							>
 								<Edit className="mr-2 h-4 w-4" />
@@ -164,7 +165,7 @@ const ContentManagerList = () => {
 							{schemaOptions?.versioning !== false && (
 								<DropdownMenuItem
 									onClick={() =>
-										navigate(`/content-manager/${name.key}/${item.id}/versions`)
+										navigate(`/content-manager/${name.key}/${item.documentId || item.id}/versions`)
 									}
 								>
 									<Globe className="mr-2 h-4 w-4" />
@@ -222,7 +223,7 @@ const ContentManagerList = () => {
 						<Button
 							variant="destructive"
 							onClick={() =>
-								itemToDelete && deleteMutation.mutate(itemToDelete.id)
+								itemToDelete && deleteMutation.mutate(itemToDelete)
 							}
 							disabled={deleteMutation.isPending}
 						>

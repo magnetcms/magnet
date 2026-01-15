@@ -184,7 +184,7 @@ export class DocumentService {
 	}
 
 	/**
-	 * Update a document
+	 * Update a document (always targets draft, auto-creates from published if needed)
 	 * @param model The model to use
 	 * @param documentId The document ID
 	 * @param data The data to update
@@ -197,9 +197,46 @@ export class DocumentService {
 		options: UpdateDocumentOptions = {},
 	): Promise<Document<T> | null> {
 		const locale = options.locale ?? this.getDefaultLocale()
-		const status = options.status ?? 'draft'
+		// Always update draft, never published directly
+		const status = 'draft'
 
 		const query = { documentId, locale, status }
+
+		// Try to find existing draft
+		const existingDraft = await model.findOne(
+			query as unknown as Partial<T & { id: string }>,
+		)
+
+		if (!existingDraft) {
+			// No draft exists - check if published exists to copy from
+			const published = await this.findPublished(model, documentId, locale)
+			if (published) {
+				// Create new draft from published + new data
+				const {
+					id: _id,
+					status: _status,
+					publishedAt: _publishedAt,
+					...publishedData
+				} = published as Document<T> & { id?: string; publishedAt?: Date }
+				const now = new Date()
+				const draftData = {
+					...publishedData,
+					...data,
+					status: 'draft' as const,
+					publishedAt: null,
+					updatedAt: now,
+					updatedBy: options.updatedBy,
+				}
+				const created = await model.create(
+					draftData as unknown as Partial<T & { id: string }>,
+				)
+				return created as unknown as Document<T>
+			}
+			// No published either - document doesn't exist
+			return null
+		}
+
+		// Draft exists - update it
 		const updateData = {
 			...data,
 			updatedAt: new Date(),
@@ -282,6 +319,13 @@ export class DocumentService {
 			`Published ${locale} locale`,
 			locale,
 		)
+
+		// Delete the draft after publishing (content is now published)
+		await model.delete({
+			documentId,
+			locale,
+			status: 'draft',
+		} as unknown as Partial<T & { id: string }>)
 
 		return published
 	}

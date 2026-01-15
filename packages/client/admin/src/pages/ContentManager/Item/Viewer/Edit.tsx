@@ -18,11 +18,8 @@ const ContentManagerViewerEdit = () => {
 	const adapter = useAdapter()
 	const isCreating = !documentId || documentId === 'create'
 
-	// State for locale and status
+	// State for locale
 	const [currentLocale, setCurrentLocale] = useState('en')
-	const [currentStatus, setCurrentStatus] = useState<'draft' | 'published'>(
-		'draft',
-	)
 
 	// Get schema metadata and name information
 	const contentManager = useContentManager()
@@ -63,18 +60,18 @@ const ContentManagerViewerEdit = () => {
 		| LocaleStatus
 		| undefined
 
-	// Determine which status to actually fetch from the API
-	// If user wants draft but no draft exists, fetch published as base for new draft
+	// Determine which status to fetch from the API
+	// Priority: draft if exists, otherwise published
 	const effectiveStatus = (() => {
 		if (!hasVersioning) return undefined
-		if (currentStatus === 'draft') {
-			// If no draft exists but published does, fetch published as the base
-			if (!currentLocaleStatus?.hasDraft && currentLocaleStatus?.hasPublished) {
-				return 'published'
-			}
+		// If draft exists, fetch draft; otherwise fetch published as base
+		if (currentLocaleStatus?.hasDraft) {
 			return 'draft'
 		}
-		return currentStatus
+		if (currentLocaleStatus?.hasPublished) {
+			return 'published'
+		}
+		return 'draft' // Default for new documents
 	})()
 
 	// Fetch item if editing
@@ -92,18 +89,6 @@ const ContentManagerViewerEdit = () => {
 				...(hasVersioning && { status: effectiveStatus }),
 			}),
 		enabled: !isCreating && !!documentId,
-	})
-
-	// Fetch versions for the current locale (only if versioning is enabled)
-	const { data: versions } = useQuery({
-		queryKey: ['content', schemaName, documentId, 'versions', currentLocale],
-		queryFn: () =>
-			adapter.content.getVersions(
-				name.key,
-				documentId as string,
-				currentLocale,
-			),
-		enabled: !isCreating && !!documentId && hasVersioning,
 	})
 
 	// Create mutation
@@ -128,12 +113,12 @@ const ContentManagerViewerEdit = () => {
 		},
 	})
 
-	// Update mutation
+	// Update mutation - always saves to draft
 	const updateMutation = useMutation({
 		mutationFn: (data: ContentData) =>
 			adapter.content.update(name.key, documentId as string, data, {
 				...(hasI18n && { locale: currentLocale }),
-				...(hasVersioning && { status: currentStatus }),
+				...(hasVersioning && { status: 'draft' }),
 			}),
 		onSuccess: () => {
 			toast.success('Content updated', {
@@ -178,8 +163,6 @@ const ContentManagerViewerEdit = () => {
 			queryClient.invalidateQueries({
 				queryKey: ['content', schemaName, documentId],
 			})
-			// Switch to draft view after unpublishing
-			setCurrentStatus('draft')
 		},
 		onError: (error) => {
 			toast.error(`Failed to unpublish: ${error.message}`)
@@ -224,8 +207,6 @@ const ContentManagerViewerEdit = () => {
 	// Handle locale change
 	const handleLocaleChange = (locale: string) => {
 		setCurrentLocale(locale)
-		// Reset to draft when changing locale
-		setCurrentStatus('draft')
 	}
 
 	// Handle add locale - copy current item's data as initial content
@@ -285,12 +266,11 @@ const ContentManagerViewerEdit = () => {
 	// More menu items (publish/unpublish actions)
 	const moreMenuItems = []
 	if (!isCreating && hasVersioning) {
-		if (currentStatus === 'draft') {
-			moreMenuItems.push({
-				label: 'Publish',
-				onClick: () => publishMutation.mutate(),
-			})
-		}
+		// Always show publish option (edits create/update draft, which can be published)
+		moreMenuItems.push({
+			label: 'Publish',
+			onClick: () => publishMutation.mutate(),
+		})
 		if (currentLocaleStatus?.hasPublished) {
 			moreMenuItems.push({
 				label: 'Unpublish',
@@ -303,12 +283,15 @@ const ContentManagerViewerEdit = () => {
 	// Get current item data
 	const currentItem = Array.isArray(item) ? item[0] : item
 
+	// Determine display status based on what's being viewed
+	const displayStatus = hasVersioning ? effectiveStatus : undefined
+
 	return (
 		<div className="flex flex-col w-full min-h-0">
 			<ContentHeader
 				basePath={basePath}
 				title={isCreating ? `Create ${name.title}` : name.title}
-				status={hasVersioning ? currentStatus : undefined}
+				status={displayStatus}
 				lastEdited={
 					typeof currentItem?.updatedAt === 'string' ||
 					currentItem?.updatedAt instanceof Date
@@ -335,47 +318,12 @@ const ContentManagerViewerEdit = () => {
 				moreMenuItems={moreMenuItems.length > 0 ? moreMenuItems : undefined}
 			/>
 
-			{/* Status toggle for versioning - shown below header when needed */}
-			{!isCreating && hasVersioning && (
-				<div className="px-6 py-3 border-b border-border bg-muted/30 flex items-center gap-4">
-					<span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-						Viewing:
+			{/* Info bar when editing published content (will create draft on save) */}
+			{!isCreating && hasVersioning && !currentLocaleStatus?.hasDraft && currentLocaleStatus?.hasPublished && (
+				<div className="px-6 py-2 border-b border-border bg-amber-50 dark:bg-amber-950/30 flex items-center gap-2">
+					<span className="text-xs text-amber-700 dark:text-amber-400">
+						Editing published content. Changes will be saved as a new draft.
 					</span>
-					<div className="flex items-center gap-1 bg-background rounded-md p-0.5 border">
-						<button
-							type="button"
-							onClick={() => setCurrentStatus('draft')}
-							className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-								currentStatus === 'draft'
-									? 'bg-foreground text-background'
-									: 'text-muted-foreground hover:text-foreground'
-							}`}
-						>
-							Draft
-							{!currentLocaleStatus?.hasDraft &&
-								currentLocaleStatus?.hasPublished && (
-									<span className="ml-1 text-[10px] opacity-60">(new)</span>
-								)}
-						</button>
-						<button
-							type="button"
-							onClick={() => setCurrentStatus('published')}
-							disabled={!currentLocaleStatus?.hasPublished}
-							className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-								currentStatus === 'published'
-									? 'bg-foreground text-background'
-									: 'text-muted-foreground hover:text-foreground disabled:opacity-50'
-							}`}
-						>
-							Published
-						</button>
-					</div>
-					{versions && versions.length > 0 && (
-						<span className="text-xs text-muted-foreground">
-							{versions.length} version(s)
-							{hasI18n ? ` for ${currentLocale}` : ''}
-						</span>
-					)}
 				</div>
 			)}
 
