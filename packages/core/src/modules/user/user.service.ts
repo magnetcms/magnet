@@ -1,5 +1,6 @@
 import { InjectModel, Model } from '@magnet/common'
 import { Injectable } from '@nestjs/common'
+import { CreateUserDto } from './dto/create-user.dto'
 import { User } from './schemas/user.schema'
 
 @Injectable()
@@ -14,8 +15,19 @@ export class UserService {
 		return this.userModel.findOne(query)
 	}
 
-	async create(userData: Partial<User>) {
-		const newUser = this.userModel.create(userData)
-		return newUser
+	async findOneById(id: string) {
+		return this.userModel.findOne({ id })
+	}
+
+	async create(userData: CreateUserDto) {
+		return this.userModel.create(userData)
+	}
+
+	async update(id: string, updateUserDto: Partial<CreateUserDto>) {
+		return this.userModel.update({ id }, updateUserDto)
+	}
+
+	async remove(id: string) {
+		return this.userModel.delete({ id })
 	}
 }
