@@ -21,17 +21,18 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Head } from '~/components/Head'
+import { useAdapter } from '~/core/provider/MagnetProvider'
 import { useContentManager } from '~/hooks/useContentManager'
-import { fetcher } from '~/lib/api'
 
 interface ContentItem {
 	id: string
-	[key: string]: any
+	[key: string]: unknown
 }
 
 const ContentManagerList = () => {
 	const navigate = useNavigate()
 	const queryClient = useQueryClient()
+	const adapter = useAdapter()
 	const [itemToDelete, setItemToDelete] = useState<ContentItem | null>(null)
 	const contentManager = useContentManager()
 
@@ -46,15 +47,13 @@ const ContentManagerList = () => {
 		error,
 	} = useQuery({
 		queryKey: ['content', name.key],
-		queryFn: () => fetcher<ContentItem[]>(`/${name.key}s`),
+		queryFn: () => adapter.content.list<ContentItem>(name.key),
 	})
 
 	// Delete mutation
 	const deleteMutation = useMutation({
 		mutationFn: (id: string) => {
-			return fetcher(`/${name.key}/${id}`, {
-				method: 'DELETE',
-			})
+			return adapter.content.delete(name.key, id)
 		},
 		onSuccess: () => {
 			toast('Content deleted', {
@@ -73,12 +72,9 @@ const ContentManagerList = () => {
 		mutationFn: (item: ContentItem) => {
 			// Create a new item by duplicating the existing one without the ID
 			const { id, ...itemData } = item
-			return fetcher(`/${name.key}`, {
-				method: 'POST',
-				body: JSON.stringify({
-					...itemData,
-					name: `${itemData.name || itemData.title || 'Copy'} (Copy)`, // Add "Copy" to the name or title
-				}),
+			return adapter.content.create(name.key, {
+				...itemData,
+				name: `${itemData.name || itemData.title || 'Copy'} (Copy)`,
 			})
 		},
 		onSuccess: () => {

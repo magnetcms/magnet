@@ -1,7 +1,9 @@
 import React, { Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
+import { Toaster } from '@magnet/ui/components'
 
 import { Loader } from '~/components/Loader'
+import { AdminProvider } from '~/contexts/useAdmin'
 import { PrivateRoute } from './PrivateRoute'
 import { PublicRoute } from './PublicRoute'
 
@@ -28,90 +30,105 @@ const withSuspense = (Component: React.ComponentType<any>) => (
 	</Suspense>
 )
 
+/**
+ * Root layout that provides AdminProvider and Toaster to all routes
+ */
+const RootLayout = () => (
+	<AdminProvider>
+		<Outlet />
+		<Toaster />
+	</AdminProvider>
+)
+
 export const routes = [
 	{
-		path: '/',
-		element: <PrivateRoute />,
+		element: <RootLayout />,
 		children: [
 			{
 				path: '/',
-				element: <DashboardLayout />,
+				element: <PrivateRoute />,
 				children: [
-					{ path: '', element: withSuspense(HomePage) },
 					{
-						path: 'content-manager',
-						element: <Outlet />,
+						path: '/',
+						element: <DashboardLayout />,
 						children: [
+							{ path: '', element: withSuspense(HomePage) },
 							{
-								path: '',
-								element: <ContentManager />,
-							},
-							{
-								path: ':schema',
-								element: <ContentManagerItem />,
+								path: 'content-manager',
+								element: <Outlet />,
 								children: [
 									{
 										path: '',
-										element: <ContentManagerList />,
+										element: <ContentManager />,
 									},
 									{
-										path: ':id',
-										element: <ContentManagerViewer />,
+										path: ':schema',
+										element: <ContentManagerItem />,
 										children: [
 											{
 												path: '',
-												element: <ContentManagerViewerEdit />,
+												element: <ContentManagerList />,
 											},
 											{
-												path: 'live-preview',
-												element: <ContentManagerViewerLivePreview />,
-											},
-											{
-												path: 'versions',
-												element: <ContentManagerViewerVersions />,
-											},
-											{
-												path: 'api',
-												element: <ContentManagerViewerAPI />,
+												path: ':id',
+												element: <ContentManagerViewer />,
+												children: [
+													{
+														path: '',
+														element: <ContentManagerViewerEdit />,
+													},
+													{
+														path: 'live-preview',
+														element: <ContentManagerViewerLivePreview />,
+													},
+													{
+														path: 'versions',
+														element: <ContentManagerViewerVersions />,
+													},
+													{
+														path: 'api',
+														element: <ContentManagerViewerAPI />,
+													},
+												],
 											},
 										],
 									},
 								],
 							},
-						],
-					},
-					{
-						path: 'settings',
-						element: <Outlet />,
-						children: [
 							{
-								path: '',
-								element: <Settings />,
-							},
-							{
-								path: ':group',
-								element: <SettingsEdit />,
+								path: 'settings',
+								element: <Outlet />,
+								children: [
+									{
+										path: '',
+										element: <Settings />,
+									},
+									{
+										path: ':group',
+										element: <SettingsEdit />,
+									},
+								],
 							},
 						],
 					},
 				],
 			},
-		],
-	},
-	{
-		path: '/auth',
-		element: <PublicRoute />,
-		children: [
 			{
-				path: '',
-				element: <AuthLayout />,
-				children: [{ path: '', element: <Auth /> }],
+				path: '/auth',
+				element: <PublicRoute />,
+				children: [
+					{
+						path: '',
+						element: <AuthLayout />,
+						children: [{ path: '', element: <Auth /> }],
+					},
+				],
+			},
+			{
+				path: '*',
+				element: <NotFound />,
 			},
 		],
-	},
-	{
-		path: '*',
-		element: <NotFound />,
 	},
 ]
 

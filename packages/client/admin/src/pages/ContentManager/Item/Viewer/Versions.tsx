@@ -4,24 +4,14 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Head } from '~/components/Head'
+import { useAdapter } from '~/core/provider/MagnetProvider'
 import { useContentManager } from '~/hooks/useContentManager'
-import { fetcher } from '~/lib/api'
-
-type Version = {
-	versionId: string
-	documentId: string
-	collection: string
-	status: 'draft' | 'published' | 'archived'
-	data: Record<string, any>
-	createdAt: string
-	createdBy?: string
-	notes?: string
-}
 
 const ContentManagerViewerVersions = () => {
 	const { id, schema: schemaName } = useParams()
 	const navigate = useNavigate()
 	const queryClient = useQueryClient()
+	const adapter = useAdapter()
 	const [selectedVersion, setSelectedVersion] = useState<string | null>(null)
 
 	const contentManager = useContentManager()
@@ -32,23 +22,21 @@ const ContentManagerViewerVersions = () => {
 	// Fetch all versions for the current document
 	const { data: versions, isLoading: isLoadingVersions } = useQuery({
 		queryKey: ['versions', schemaName, id],
-		queryFn: () =>
-			fetcher<Version[]>(`/history/versions/${id}?collection=${name.key}`),
+		queryFn: () => adapter.history.getVersions(id as string, name.key),
+		enabled: !!id,
 	})
 
 	// Fetch details of the selected version
 	const { data: versionDetails, isLoading: isLoadingDetails } = useQuery({
 		queryKey: ['version', selectedVersion],
-		queryFn: () => fetcher<Version>(`/history/version/${selectedVersion}`),
+		queryFn: () => adapter.history.getVersion(selectedVersion as string),
 		enabled: !!selectedVersion,
 	})
 
-	// Restore version mutation
+	// Restore version mutation (publish)
 	const restoreMutation = useMutation({
 		mutationFn: (versionId: string) => {
-			return fetcher(`/history/version/${versionId}/publish`, {
-				method: 'PUT',
-			})
+			return adapter.history.publishVersion(versionId)
 		},
 		onSuccess: () => {
 			toast.success('Version restored', {
@@ -64,9 +52,7 @@ const ContentManagerViewerVersions = () => {
 	// Publish draft mutation
 	const publishMutation = useMutation({
 		mutationFn: (versionId: string) => {
-			return fetcher(`/history/version/${versionId}/publish`, {
-				method: 'PUT',
-			})
+			return adapter.history.publishVersion(versionId)
 		},
 		onSuccess: () => {
 			toast.success('Version published', {
@@ -82,9 +68,7 @@ const ContentManagerViewerVersions = () => {
 	// Archive version mutation
 	const archiveMutation = useMutation({
 		mutationFn: (versionId: string) => {
-			return fetcher(`/history/version/${versionId}/archive`, {
-				method: 'PUT',
-			})
+			return adapter.history.archiveVersion(versionId)
 		},
 		onSuccess: () => {
 			toast.success('Version archived', {
@@ -100,9 +84,7 @@ const ContentManagerViewerVersions = () => {
 	// Delete version mutation
 	const deleteMutation = useMutation({
 		mutationFn: (versionId: string) => {
-			return fetcher(`/history/version/${versionId}`, {
-				method: 'DELETE',
-			})
+			return adapter.history.deleteVersion(versionId)
 		},
 		onSuccess: () => {
 			toast.success('Version deleted', {

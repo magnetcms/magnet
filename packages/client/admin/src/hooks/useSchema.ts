@@ -1,11 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetcher } from '~/lib/api'
+import { useAdapter } from '~/core/provider/MagnetProvider'
 
-export const useSchema = <T extends Record<string, unknown>>(
+/**
+ * Hook to fetch content items for a schema
+ * Note: This fetches actual content data, not schema metadata
+ */
+export const useContentList = <T extends Record<string, unknown>>(
 	schema: string,
 ) => {
+	const adapter = useAdapter()
+
 	return useQuery<T[], Error>({
-		queryKey: ['schemas', schema],
-		queryFn: () => fetcher<T[]>(`/${schema}s`),
+		queryKey: ['content', schema],
+		queryFn: () => adapter.content.list<T>(schema),
+		enabled: !!schema,
 	})
 }

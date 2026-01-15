@@ -15,6 +15,7 @@ export default defineConfig({
 	external: [
 		'react',
 		'react-dom',
+		'react-router-dom',
 		'@radix-ui/react-accordion',
 		'@radix-ui/react-alert-dialog',
 		'@radix-ui/react-aspect-ratio',

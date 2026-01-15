@@ -1,64 +1,52 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
-import { fetcher } from '~/lib/api'
+import { useAdapter, useTokenStorage } from '~/core/provider/MagnetProvider'
+import type {
+	AuthStatus,
+	AuthUser,
+	LoginCredentials,
+	RegisterCredentials,
+} from '~/core/adapters/types'
 
-// Types
-type LoginInput = { email: string; password: string }
-type RegisterInput = {
-	email: string
-	password: string
-	name: string
-	role: string
-}
-type User = { id: string; email: string; name: string; role: string }
-type Status = {
-	authenticated: boolean
-	requiresSetup: boolean
-	message: string
-}
-type AuthResponse = {
-	access_token: string
-	refresh_token?: string
-	expires_in?: number
-}
+// Query Keys
+export const AUTH_ME_KEY = ['auth', 'me']
+export const AUTH_STATUS_KEY = ['auth', 'status']
+export const AUTH_USER_KEY = ['auth', 'user']
+
+// Legacy token keys for backward compatibility
+export const TOKEN_KEY = 'auth_token'
+export const REFRESH_TOKEN_KEY = 'auth_refresh_token'
+export const TOKEN_EXPIRY_KEY = 'auth_token_expiry'
+
 type AuthError = {
 	message: string
 	code?: string
 }
 
-// Constants
-export const AUTH_ME_KEY = ['auth', 'me']
-export const AUTH_STATUS_KEY = ['auth', 'status']
-export const AUTH_USER_KEY = ['auth', 'user']
-export const TOKEN_KEY = 'auth_token'
-export const REFRESH_TOKEN_KEY = 'auth_refresh_token'
-export const TOKEN_EXPIRY_KEY = 'auth_token_expiry'
-
 export const useLogin = () => {
+	const adapter = useAdapter()
+	const tokenStorage = useTokenStorage()
 	const queryClient = useQueryClient()
 
-	return useMutation<AuthResponse, AuthError, LoginInput>({
-		mutationFn: async (data: LoginInput) =>
-			fetcher<AuthResponse>('/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(data),
-			}),
+	return useMutation({
+		mutationFn: async (credentials: LoginCredentials) => {
+			return adapter.auth.login(credentials)
+		},
 		onSuccess: (data) => {
-			const { access_token, refresh_token, expires_in } = data
+			const { accessToken, refreshToken, expiresIn } = data
 
 			// Store tokens
-			localStorage.setItem(TOKEN_KEY, access_token)
+			tokenStorage.setAccessToken(accessToken)
 
 			// Store refresh token if available
-			if (refresh_token) {
-				localStorage.setItem(REFRESH_TOKEN_KEY, refresh_token)
+			if (refreshToken) {
+				tokenStorage.setRefreshToken(refreshToken)
 			}
 
 			// Store expiry if available
-			if (expires_in) {
-				const expiryTime = Date.now() + expires_in * 1000
-				localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString())
+			if (expiresIn) {
+				const expiryTime = Date.now() + expiresIn * 1000
+				tokenStorage.setTokenExpiry(expiryTime)
 			}
 
 			// Invalidate queries to refetch user data
@@ -69,30 +57,29 @@ export const useLogin = () => {
 }
 
 export const useRegister = () => {
+	const adapter = useAdapter()
+	const tokenStorage = useTokenStorage()
 	const queryClient = useQueryClient()
 
-	return useMutation<AuthResponse, AuthError, RegisterInput>({
-		mutationFn: async (data: RegisterInput) =>
-			fetcher<AuthResponse>('/auth/register', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(data),
-			}),
+	return useMutation({
+		mutationFn: async (credentials: RegisterCredentials) => {
+			return adapter.auth.register(credentials)
+		},
 		onSuccess: (data) => {
-			const { access_token, refresh_token, expires_in } = data
+			const { accessToken, refreshToken, expiresIn } = data
 
 			// Store tokens
-			localStorage.setItem(TOKEN_KEY, access_token)
+			tokenStorage.setAccessToken(accessToken)
 
 			// Store refresh token if available
-			if (refresh_token) {
-				localStorage.setItem(REFRESH_TOKEN_KEY, refresh_token)
+			if (refreshToken) {
+				tokenStorage.setRefreshToken(refreshToken)
 			}
 
 			// Store expiry if available
-			if (expires_in) {
-				const expiryTime = Date.now() + expires_in * 1000
-				localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString())
+			if (expiresIn) {
+				const expiryTime = Date.now() + expiresIn * 1000
+				tokenStorage.setTokenExpiry(expiryTime)
 			}
 
 			// Invalidate queries to refetch user data
@@ -103,37 +90,35 @@ export const useRegister = () => {
 }
 
 export const useRefreshToken = () => {
+	const adapter = useAdapter()
+	const tokenStorage = useTokenStorage()
 	const queryClient = useQueryClient()
 
-	return useMutation<AuthResponse, AuthError>({
+	return useMutation({
 		mutationFn: async () => {
-			const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
+			const refreshToken = tokenStorage.getRefreshToken()
 
 			if (!refreshToken) {
 				throw new Error('No refresh token available')
 			}
 
-			return fetcher<AuthResponse>('/auth/refresh', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ refresh_token: refreshToken }),
-			})
+			return adapter.auth.refresh(refreshToken)
 		},
 		onSuccess: (data) => {
-			const { access_token, refresh_token, expires_in } = data
+			const { accessToken, refreshToken, expiresIn } = data
 
 			// Store new tokens
-			localStorage.setItem(TOKEN_KEY, access_token)
+			tokenStorage.setAccessToken(accessToken)
 
 			// Store new refresh token if available
-			if (refresh_token) {
-				localStorage.setItem(REFRESH_TOKEN_KEY, refresh_token)
+			if (refreshToken) {
+				tokenStorage.setRefreshToken(refreshToken)
 			}
 
 			// Store new expiry if available
-			if (expires_in) {
-				const expiryTime = Date.now() + expires_in * 1000
-				localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString())
+			if (expiresIn) {
+				const expiryTime = Date.now() + expiresIn * 1000
+				tokenStorage.setTokenExpiry(expiryTime)
 			}
 
 			// Invalidate queries to refetch user data
@@ -141,9 +126,7 @@ export const useRefreshToken = () => {
 		},
 		onError: () => {
 			// If refresh fails, log the user out
-			localStorage.removeItem(TOKEN_KEY)
-			localStorage.removeItem(REFRESH_TOKEN_KEY)
-			localStorage.removeItem(TOKEN_EXPIRY_KEY)
+			tokenStorage.clearAll()
 			queryClient.removeQueries({ queryKey: AUTH_USER_KEY })
 			queryClient.removeQueries({ queryKey: AUTH_ME_KEY })
 		},
@@ -151,51 +134,57 @@ export const useRefreshToken = () => {
 }
 
 export const useMe = () => {
-	return useQuery<User, AuthError>({
+	const adapter = useAdapter()
+
+	return useQuery<AuthUser, AuthError>({
 		queryKey: AUTH_ME_KEY,
-		queryFn: () => fetcher<User>('/auth/me'),
+		queryFn: () => adapter.auth.getMe(),
 	})
 }
 
 export const useStatus = () => {
-	return useQuery<Status, AuthError>({
+	const adapter = useAdapter()
+
+	return useQuery<AuthStatus, AuthError>({
 		queryKey: AUTH_STATUS_KEY,
-		queryFn: () => fetcher<Status>('/auth/status'),
+		queryFn: () => adapter.auth.getStatus(),
 	})
 }
 
 export const useLogout = () => {
+	const adapter = useAdapter()
+	const tokenStorage = useTokenStorage()
 	const queryClient = useQueryClient()
 
-	return useCallback(() => {
-		// Clear all auth-related data from localStorage
-		localStorage.removeItem(TOKEN_KEY)
-		localStorage.removeItem(REFRESH_TOKEN_KEY)
-		localStorage.removeItem(TOKEN_EXPIRY_KEY)
+	return useCallback(async () => {
+		// Call adapter logout (clears tokens internally)
+		await adapter.auth.logout()
+
+		// Also clear via tokenStorage for good measure
+		tokenStorage.clearAll()
 
 		// Clear auth-related queries from cache
 		queryClient.removeQueries({ queryKey: AUTH_USER_KEY })
 		queryClient.removeQueries({ queryKey: AUTH_ME_KEY })
 		queryClient.removeQueries({ queryKey: AUTH_STATUS_KEY })
-
-		// Optionally call logout endpoint if needed
-		// return fetcher('/auth/logout', { method: 'POST' })
-	}, [queryClient])
+	}, [adapter, tokenStorage, queryClient])
 }
 
 export const useAuth = () => {
+	const adapter = useAdapter()
+	const tokenStorage = useTokenStorage()
 	const [token, setToken] = useState<string | null>(null)
 	const [isInitializing, setIsInitializing] = useState(true)
 	const { mutate: refreshToken } = useRefreshToken()
 
-	// Initialize auth state from localStorage
+	// Initialize auth state from storage
 	useEffect(() => {
-		const storedToken = localStorage.getItem(TOKEN_KEY)
-		const tokenExpiry = localStorage.getItem(TOKEN_EXPIRY_KEY)
+		const storedToken = tokenStorage.getAccessToken()
+		const tokenExpiry = tokenStorage.getTokenExpiry()
 
 		if (storedToken) {
 			// Check if token is expired
-			if (tokenExpiry && Number.parseInt(tokenExpiry) < Date.now()) {
+			if (tokenExpiry && tokenExpiry < Date.now()) {
 				// Token expired, try to refresh
 				refreshToken(undefined, {
 					onSettled: () => {
@@ -210,17 +199,16 @@ export const useAuth = () => {
 		} else {
 			setIsInitializing(false)
 		}
-	}, [refreshToken])
+	}, [tokenStorage, refreshToken])
 
 	// Set up token refresh interval if needed
 	useEffect(() => {
 		if (!token) return
 
-		const tokenExpiry = localStorage.getItem(TOKEN_EXPIRY_KEY)
+		const tokenExpiry = tokenStorage.getTokenExpiry()
 		if (!tokenExpiry) return
 
-		const expiryTime = Number.parseInt(tokenExpiry)
-		const timeUntilExpiry = expiryTime - Date.now()
+		const timeUntilExpiry = tokenExpiry - Date.now()
 
 		// Refresh 1 minute before expiry
 		const refreshTime = Math.max(0, timeUntilExpiry - 60000)
@@ -230,15 +218,15 @@ export const useAuth = () => {
 		}, refreshTime)
 
 		return () => clearTimeout(refreshTimerId)
-	}, [token, refreshToken])
+	}, [token, tokenStorage, refreshToken])
 
 	const {
 		data: user,
 		isLoading: isUserLoading,
 		error,
-	} = useQuery<User, AuthError>({
+	} = useQuery<AuthUser, AuthError>({
 		queryKey: AUTH_USER_KEY,
-		queryFn: () => fetcher<User>('/auth/me'),
+		queryFn: () => adapter.auth.getMe(),
 		enabled: !!token && !isInitializing,
 		retry: 1,
 		staleTime: 5 * 60 * 1000, // 5 minutes

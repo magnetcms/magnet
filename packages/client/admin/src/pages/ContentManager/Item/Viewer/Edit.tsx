@@ -6,16 +6,15 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { FormBuilder } from '~/components/FormBuilder'
 import { Head } from '~/components/Head'
+import { useAdapter } from '~/core/provider/MagnetProvider'
 import { useContentManager } from '~/hooks/useContentManager'
-import { fetcher } from '~/lib/api'
-
-// Define generic type for content data
-type ContentData = Record<string, any>
+import type { ContentData } from '~/core/adapters/types'
 
 const ContentManagerViewerEdit = () => {
 	const { id, schema: schemaName } = useParams()
 	const navigate = useNavigate()
 	const queryClient = useQueryClient()
+	const adapter = useAdapter()
 	const isCreating = !id || id === 'create'
 	const [locale, setLocale] = useState<string | null>(null)
 	const [version, setVersion] = useState<string | null>(null)
@@ -30,28 +29,18 @@ const ContentManagerViewerEdit = () => {
 	const { data: item, isLoading: isLoadingItem } = useQuery({
 		queryKey: ['content', schemaName, id, locale, version],
 		queryFn: () => {
-			let url = `/${name.key}s/${id}`
-			const params = new URLSearchParams()
-
-			if (locale) params.append('locale', locale)
-			if (version) params.append('version', version)
-
-			if (params.toString()) {
-				url += `?${params.toString()}`
-			}
-
-			return fetcher<ContentData>(url)
+			return adapter.content.get(name.key, id as string, {
+				locale: locale || undefined,
+				version: version || undefined,
+			})
 		},
-		enabled: !isCreating,
+		enabled: !isCreating && !!id,
 	})
 
 	// Create mutation
 	const createMutation = useMutation({
 		mutationFn: (data: ContentData) => {
-			return fetcher<ContentData>(`/${name.key}`, {
-				method: 'POST',
-				body: JSON.stringify(data),
-			})
+			return adapter.content.create<ContentData & { id: string }>(name.key, data)
 		},
 		onSuccess: (data) => {
 			toast('Content created', {
@@ -68,19 +57,9 @@ const ContentManagerViewerEdit = () => {
 	// Update mutation
 	const updateMutation = useMutation({
 		mutationFn: (data: ContentData) => {
-			let url = `/${name.key}/${id}`
-			const params = new URLSearchParams()
-
-			if (locale) params.append('locale', locale)
-			if (version) params.append('version', version)
-
-			if (params.toString()) {
-				url += `?${params.toString()}`
-			}
-
-			return fetcher<ContentData>(url, {
-				method: 'PUT',
-				body: JSON.stringify(data),
+			return adapter.content.update(name.key, id as string, data, {
+				locale: locale || undefined,
+				version: version || undefined,
 			})
 		},
 		onSuccess: () => {
@@ -114,11 +93,9 @@ const ContentManagerViewerEdit = () => {
 	const { data: versions, isLoading: isLoadingVersions } = useQuery({
 		queryKey: ['versions', schemaName, id],
 		queryFn: () => {
-			return fetcher<
-				{ versionId: string; status: string; createdAt: string }[]
-			>(`/history/versions/${id}?collection=${name.key}`)
+			return adapter.history.getVersions(id as string, name.key)
 		},
-		enabled: !isCreating,
+		enabled: !isCreating && !!id,
 	})
 
 	// Loading state

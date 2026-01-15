@@ -13,7 +13,7 @@ import { Versioning } from './setting/history.setting'
 	imports: [
 		forwardRef(() => DatabaseModule),
 		forwardRef(() => DatabaseModule.forFeature(History)),
-		SettingsModule.forFeature(Versioning),
+		forwardRef(() => SettingsModule.forFeature(Versioning)),
 	],
 	controllers: [HistoryController],
 	providers: [

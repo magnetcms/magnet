@@ -18,13 +18,17 @@ import { Head } from '~/components/Head'
 import { useContentManager } from '~/hooks/useContentManager'
 
 const ContentManagerViewerAPI = () => {
-	const { id, schema: schemaName } = useParams()
+	const { id, schema: _schemaName } = useParams()
 	const [copied, setCopied] = useState<Record<string, boolean>>({})
 
 	const contentManager = useContentManager()
 	if (!contentManager) return <Spinner />
 
 	const { name, schemaMetadata } = contentManager
+
+	// Type guard to ensure schemaMetadata has properties
+	const properties =
+		'properties' in schemaMetadata ? schemaMetadata.properties : []
 
 	// Base API URL - should come from config
 	const apiBaseUrl = 'http://localhost:3000'
@@ -72,7 +76,7 @@ const ContentManagerViewerAPI = () => {
 			description: `Create a new ${name.title.toLowerCase()}`,
 			code: `const newItem = {
   // Required fields
-${schemaMetadata.properties
+${properties
 	.filter((p) => p.required)
 	.map((p) => `  ${p.name}: "${p.type === 'string' ? 'value' : 'value'}"`)
 	.join(',\n')}
@@ -97,7 +101,7 @@ fetch('${apiBaseUrl}/${name.key}', {
 			description: `Update an existing ${name.title.toLowerCase()}`,
 			code: `const updatedItem = {
   // Fields to update
-${schemaMetadata.properties
+${properties
 	.slice(0, 3)
 	.map(
 		(p) =>
@@ -126,7 +130,7 @@ fetch('${apiBaseUrl}/${name.key}/${id || '{id}'}', {
 			code: `const localizedItem = {
   // Fields to update with localization
 ${
-	schemaMetadata.properties
+	properties
 		.filter(
 			(p) =>
 				p.validations?.some((v) => v.name === 'intl') || p.ui?.type === 'intl',

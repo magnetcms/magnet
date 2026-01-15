@@ -1,36 +1,34 @@
-import { Toaster } from '@magnet/ui/components'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, useRoutes } from 'react-router-dom'
-import { AdminProvider } from './contexts/useAdmin'
+import { MagnetProvider } from './core/provider/MagnetProvider'
 import { routes } from './routes/index.tsx'
 
 import './styles/global.css'
 
-const queryClient = new QueryClient()
-
-const basePath = import.meta.env.VITE_BASE_PATH
+// BASE_URL is set by Vite from the 'base' config option
+// Remove trailing slash for React Router basename compatibility
+const rawBasePath = import.meta.env.BASE_URL || '/admin/'
+const basePath = rawBasePath.endsWith('/') ? rawBasePath.slice(0, -1) : rawBasePath
+const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 const AppRoutes = () => {
 	const element = useRoutes(routes)
 	return element
 }
 
+/**
+ * App component for development mode
+ * Uses BrowserRouter with useRoutes for hot-reloading support
+ *
+ * For production/library usage, use MagnetAdmin component instead
+ * which uses createBrowserRouter and RouterProvider
+ */
 const App = () => {
 	return (
-		<BrowserRouter
-			basename={basePath}
-			future={{
-				v7_startTransition: true,
-			}}
-		>
-			<QueryClientProvider client={queryClient}>
-				<AdminProvider>
-					<AppRoutes />
-
-					<Toaster />
-				</AdminProvider>
-			</QueryClientProvider>
-		</BrowserRouter>
+		<MagnetProvider config={{ apiBaseUrl, basePath }}>
+			<BrowserRouter basename={basePath}>
+				<AppRoutes />
+			</BrowserRouter>
+		</MagnetProvider>
 	)
 }
 

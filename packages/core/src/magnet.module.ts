@@ -3,6 +3,7 @@ import { DynamicModule, Module, Type, ValidationPipe } from '@nestjs/common'
 import { APP_FILTER, APP_GUARD, APP_PIPE, DiscoveryModule } from '@nestjs/core'
 import { RestrictedGuard } from './guards/restricted.guard'
 import { GlobalExceptionFilter } from './handlers'
+import { AdminModule } from './modules/admin/admin.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { DatabaseModule } from './modules/database/database.module'
 import { HealthModule } from './modules/health/health.module'
@@ -21,6 +22,7 @@ export class MagnetModule {
 			module: MagnetModule,
 			global: true,
 			imports: [
+				AdminModule,
 				AuthModule,
 				DBModule,
 				DiscoveryModule,

@@ -15,8 +15,8 @@ export const fieldRenderer: Record<
 	UITypes,
 	(prop: SchemaProperty) => ReactElement
 > = {
-	array: (prop) => <div>array</div>,
-	blocks: (prop) => <div>blocks</div>,
+	array: (_prop) => <div>array</div>,
+	blocks: (_prop) => <div>blocks</div>,
 	checkbox: (prop) => (
 		<RHFCheckbox
 			key={prop.name}
@@ -25,7 +25,7 @@ export const fieldRenderer: Record<
 			description={prop.ui?.description}
 		/>
 	),
-	code: (prop) => <div>code</div>,
+	code: (_prop) => <div>code</div>,
 	date: (prop) => (
 		<RHFDatePicker
 			key={prop.name}
@@ -43,8 +43,8 @@ export const fieldRenderer: Record<
 			description={prop.ui?.description}
 		/>
 	),
-	group: (prop) => <div>group</div>,
-	json: (prop) => <div>json</div>,
+	group: (_prop) => <div>group</div>,
+	json: (_prop) => <div>json</div>,
 	number: (prop) => (
 		<RHFText
 			key={prop.name}
@@ -54,7 +54,7 @@ export const fieldRenderer: Record<
 			description={prop.ui?.description}
 		/>
 	),
-	point: (prop) => <div>point</div>,
+	point: (_prop) => <div>point</div>,
 	radio: (prop) => (
 		<RHFRadioGroup
 			key={prop.name}
@@ -67,8 +67,8 @@ export const fieldRenderer: Record<
 			}))}
 		/>
 	),
-	relationship: (prop) => <div>relationship</div>,
-	richText: (prop) => <div>richText</div>,
+	relationship: (_prop) => <div>relationship</div>,
+	richText: (_prop) => <div>richText</div>,
 	text: (prop) => (
 		<RHFText
 			key={prop.name}
@@ -106,5 +106,5 @@ export const fieldRenderer: Record<
 			description={prop.ui?.description}
 		/>
 	),
-	upload: (prop) => <div>upload</div>,
+	upload: (_prop) => <div>upload</div>,
 }

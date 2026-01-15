@@ -27,17 +27,30 @@ export class RestrictedGuard implements CanActivate {
 		const request = context.switchToHttp().getRequest<Request>()
 
 		// Get the origin from the request
-		const origin = request.headers.origin || request.headers.host
+		const origin = request.headers.origin
+		const host = request.headers.host
+
+		// If no Origin header, this is likely a same-origin request - allow it
+		if (!origin) {
+			return true
+		}
 
 		// Whitelist of allowed origins (add your specific site here)
-		const allowedOrigins = ['http://localhost:3000']
+		const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001']
 
 		// Check if the origin is in the allowed list
-		const isAllowedOrigin = allowedOrigins.some((allowed) =>
-			origin?.includes(allowed),
+		const isAllowedOrigin = allowedOrigins.some(
+			(allowed) => origin === allowed || origin.includes(allowed),
 		)
 
-		if (process.env.NODE_ENV !== 'development' && !isAllowedOrigin) {
+		// Also allow if request is from the same host
+		const isSameHost = host && origin.includes(host)
+
+		if (
+			process.env.NODE_ENV !== 'development' &&
+			!isAllowedOrigin &&
+			!isSameHost
+		) {
 			throw new ForbiddenException('Access from this origin is not allowed')
 		}
 
