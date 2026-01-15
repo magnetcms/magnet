@@ -37,7 +37,7 @@ export interface RelationConfig {
  */
 export interface ValidationRule {
 	type: string // e.g., 'IsString', 'IsNotEmpty', 'Length', 'Min', 'Max'
-	constraints?: (string | number | boolean)[] // e.g., [10, 255] for Length
+	constraints?: (string | number)[] // e.g., [10, 255] for Length
 	message?: string // Custom error message
 }
 

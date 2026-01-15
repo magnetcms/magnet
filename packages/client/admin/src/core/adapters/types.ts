@@ -278,12 +278,6 @@ export interface MagnetApiAdapter {
 		updateByGroup<T = ContentData>(group: string, data: Partial<T>): Promise<T>
 		getLocales(): Promise<LocalesConfig>
 	}
-}
-
-export interface LocalesConfig {
-	available: Array<{ key: string; value: string }>
-	configured: string[]
-	default: string
 
 	/**
 	 * Version history operations
@@ -295,4 +289,123 @@ export interface LocalesConfig {
 		archiveVersion(versionId: string): Promise<void>
 		deleteVersion(versionId: string): Promise<void>
 	}
+
+	/**
+	 * Schema Playground operations
+	 */
+	playground: {
+		listSchemas(): Promise<PlaygroundSchemaListItem[]>
+		getSchema(name: string): Promise<PlaygroundSchemaDetail>
+		createSchema(data: PlaygroundCreateSchemaDto): Promise<PlaygroundCreateModuleResponse>
+		updateSchema(
+			name: string,
+			data: PlaygroundCreateSchemaDto,
+		): Promise<PlaygroundUpdateSchemaResponse>
+		deleteSchema(name: string): Promise<{ success: boolean }>
+		previewCode(data: PlaygroundCreateSchemaDto): Promise<PlaygroundCodePreview>
+	}
+}
+
+export interface LocalesConfig {
+	available: Array<{ key: string; value: string }>
+	configured: string[]
+	default: string
+}
+
+// ============================================================================
+// Playground Types
+// ============================================================================
+
+export interface PlaygroundValidationRule {
+	type: string
+	constraints?: (string | number)[]
+	message?: string
+}
+
+export interface PlaygroundFieldUI {
+	type?: string
+	label?: string
+	description?: string
+	placeholder?: string
+	tab?: string
+	side?: boolean
+	row?: boolean
+	options?: { key: string; value: string }[]
+}
+
+export interface PlaygroundFieldProp {
+	required?: boolean
+	unique?: boolean
+	default?: unknown
+	intl?: boolean
+	hidden?: boolean
+	readonly?: boolean
+}
+
+export interface PlaygroundRelationConfig {
+	targetSchema: string
+	relationType: 'oneToOne' | 'oneToMany' | 'manyToOne' | 'manyToMany'
+	inverseSide?: string
+}
+
+export interface PlaygroundSchemaField {
+	name: string
+	displayName: string
+	type: 'text' | 'number' | 'date' | 'boolean' | 'select' | 'relation'
+	tsType: string
+	prop: PlaygroundFieldProp
+	ui: PlaygroundFieldUI
+	validations: PlaygroundValidationRule[]
+	relationConfig?: PlaygroundRelationConfig
+}
+
+export interface PlaygroundSchemaOptions {
+	versioning?: boolean
+	i18n?: boolean
+}
+
+export interface PlaygroundCreateSchemaDto {
+	name: string
+	options?: PlaygroundSchemaOptions
+	fields: PlaygroundSchemaField[]
+}
+
+export interface PlaygroundSchemaListItem {
+	name: string
+	apiId: string
+	fieldCount: number
+	hasVersioning: boolean
+	hasI18n: boolean
+	createdAt?: string
+	updatedAt?: string
+}
+
+export interface PlaygroundSchemaDetail {
+	name: string
+	apiId: string
+	options: PlaygroundSchemaOptions
+	fields: PlaygroundSchemaField[]
+	generatedCode: string
+}
+
+export interface PlaygroundCodePreview {
+	code: string
+	json: object
+}
+
+export interface PlaygroundConflictInfo {
+	fieldName: string
+	type: 'type_change' | 'required_change' | 'field_removed'
+	message: string
+	oldValue?: string
+	newValue?: string
+}
+
+export interface PlaygroundCreateModuleResponse extends PlaygroundSchemaDetail {
+	createdFiles: string[]
+	message: string
+}
+
+export interface PlaygroundUpdateSchemaResponse extends PlaygroundSchemaDetail {
+	conflicts: PlaygroundConflictInfo[]
 }

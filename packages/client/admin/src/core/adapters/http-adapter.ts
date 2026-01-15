@@ -11,6 +11,12 @@ import type {
 	LocaleStatus,
 	LoginCredentials,
 	MagnetApiAdapter,
+	PlaygroundCodePreview,
+	PlaygroundCreateModuleResponse,
+	PlaygroundCreateSchemaDto,
+	PlaygroundSchemaDetail,
+	PlaygroundSchemaListItem,
+	PlaygroundUpdateSchemaResponse,
 	RegisterCredentials,
 	TokenStorage,
 	VersionDetails,
@@ -428,6 +434,50 @@ export function createHttpAdapter(config: HttpAdapterConfig): MagnetApiAdapter {
 			async deleteVersion(versionId: string): Promise<void> {
 				await request(`/history/version/${versionId}`, {
 					method: 'DELETE',
+				})
+			},
+		},
+
+		playground: {
+			async listSchemas(): Promise<PlaygroundSchemaListItem[]> {
+				return request<PlaygroundSchemaListItem[]>('/playground/schemas')
+			},
+
+			async getSchema(name: string): Promise<PlaygroundSchemaDetail> {
+				return request<PlaygroundSchemaDetail>(`/playground/schemas/${name}`)
+			},
+
+			async createSchema(
+				data: PlaygroundCreateSchemaDto,
+			): Promise<PlaygroundCreateModuleResponse> {
+				return request<PlaygroundCreateModuleResponse>('/playground/schemas', {
+					method: 'POST',
+					body: data,
+				})
+			},
+
+			async updateSchema(
+				name: string,
+				data: PlaygroundCreateSchemaDto,
+			): Promise<PlaygroundUpdateSchemaResponse> {
+				return request<PlaygroundUpdateSchemaResponse>(`/playground/schemas/${name}`, {
+					method: 'PUT',
+					body: data,
+				})
+			},
+
+			async deleteSchema(name: string): Promise<{ success: boolean }> {
+				return request<{ success: boolean }>(`/playground/schemas/${name}`, {
+					method: 'DELETE',
+				})
+			},
+
+			async previewCode(
+				data: PlaygroundCreateSchemaDto,
+			): Promise<PlaygroundCodePreview> {
+				return request<PlaygroundCodePreview>('/playground/preview', {
+					method: 'POST',
+					body: data,
 				})
 			},
 		},

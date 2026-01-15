@@ -14,8 +14,7 @@ interface FieldListProps {
 }
 
 export function FieldList({ onAddField }: FieldListProps) {
-	const { state, selectField, deleteField, reorderFields, selectedField } =
-		useSchemaBuilder()
+	const { state, selectField, deleteField, reorderFields } = useSchemaBuilder()
 
 	const handleReorder = (reorderedFields: SchemaField[]) => {
 		reorderFields(reorderedFields)
@@ -47,7 +46,7 @@ export function FieldList({ onAddField }: FieldListProps) {
 				>
 					<SortableContent className="divide-y">
 						{state.fields.map((field) => (
-							<SortableItem key={field.id} value={field.id} asHandle>
+							<SortableItem key={field.id} value={field.id}>
 								<FieldCard
 									field={field}
 									isSelected={field.id === state.selectedFieldId}
@@ -68,11 +67,16 @@ export function FieldList({ onAddField }: FieldListProps) {
 					</SortableContent>
 
 					<SortableOverlay>
-						{({ value }) => {
+						{({ value }: { value: string }) => {
 							const field = state.fields.find((f) => f.id === value)
 							return field ? (
 								<div className="bg-background border rounded-lg shadow-lg">
-									<FieldCard field={field} isSelected showActions={false} />
+									<FieldCard
+										field={field}
+										isSelected
+										showActions={false}
+										showDragHandle={false}
+									/>
 								</div>
 							) : null
 						}}

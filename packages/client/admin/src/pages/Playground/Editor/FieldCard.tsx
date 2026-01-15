@@ -1,5 +1,5 @@
-import { Badge, Button } from '@magnet/ui/components'
-import { cn } from '@magnet/ui/lib/utils'
+import { Badge, Button, SortableItemHandle } from '@magnet/ui/components'
+import { cn } from '@magnet/ui/lib'
 import { GripVertical, Pencil, Trash2 } from 'lucide-react'
 import {
 	FIELD_TYPE_COLORS,
@@ -15,6 +15,7 @@ interface FieldCardProps {
 	onEdit?: () => void
 	onDelete?: () => void
 	showActions?: boolean
+	showDragHandle?: boolean
 }
 
 export function FieldCard({
@@ -25,6 +26,7 @@ export function FieldCard({
 	onEdit,
 	onDelete,
 	showActions = true,
+	showDragHandle = true,
 }: FieldCardProps) {
 	const definition = getFieldTypeDefinition(field.type)
 	const Icon = definition?.icon
@@ -54,9 +56,15 @@ export function FieldCard({
 			{/* Left side: Icon + Field Info */}
 			<div className="flex items-center gap-4">
 				{/* Drag Handle */}
-				<div className="text-muted-foreground/50 cursor-grab active:cursor-grabbing">
-					<GripVertical className="h-4 w-4" />
-				</div>
+				{showDragHandle ? (
+					<SortableItemHandle className="text-muted-foreground/50 hover:text-muted-foreground touch-none">
+						<GripVertical className="h-4 w-4" />
+					</SortableItemHandle>
+				) : (
+					<div className="text-muted-foreground/50">
+						<GripVertical className="h-4 w-4" />
+					</div>
+				)}
 
 				{/* Field Type Icon */}
 				<div

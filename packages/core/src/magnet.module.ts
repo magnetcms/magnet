@@ -10,6 +10,7 @@ import { DatabaseModule } from './modules/database/database.module'
 import { DocumentModule } from './modules/document/document.module'
 import { HealthModule } from './modules/health/health.module'
 import { HistoryModule } from './modules/history/history.module'
+import { PlaygroundModule } from './modules/playground/playground.module'
 import { SettingsModule } from './modules/settings/settings.module'
 import { initOptions } from './utils'
 
@@ -30,9 +31,10 @@ export class MagnetModule {
 				DBModule,
 				DiscoveryModule,
 				DocumentModule,
-				SettingsModule,
 				HistoryModule,
 				HealthModule,
+				PlaygroundModule,
+				SettingsModule,
 			],
 			providers: [
 				{ provide: APP_PIPE, useClass: ValidationPipe },

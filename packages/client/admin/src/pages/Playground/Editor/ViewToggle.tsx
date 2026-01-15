@@ -1,4 +1,4 @@
-import { cn } from '@magnet/ui/lib/utils'
+import { cn } from '@magnet/ui/lib'
 import { Code2, FileJson, PencilRuler } from 'lucide-react'
 import type { ViewMode } from '../types/builder.types'
 

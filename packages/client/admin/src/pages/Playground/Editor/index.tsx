@@ -1,13 +1,7 @@
-import {
-	Button,
-	Input,
-	Separator,
-	Spinner,
-	Switch,
-} from '@magnet/ui/components'
-import { AlertCircle, Boxes, Info, Rocket } from 'lucide-react'
+import { Button, Input, Separator, Spinner } from '@magnet/ui/components'
+import { AlertCircle, Boxes, Info, Rocket, Settings2 } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useSchema } from '~/hooks/useDiscovery'
 import {
 	SchemaBuilderContext,
@@ -20,6 +14,7 @@ import { AddFieldDialog } from './AddFieldDialog'
 import { CodePreview } from './CodePreview'
 import { FieldList } from './FieldList'
 import { FieldSettingsPanel } from './FieldSettingsPanel'
+import { SchemaOptionsDialog } from './SchemaOptionsDialog'
 import { ViewToggle } from './ViewToggle'
 
 /**
@@ -92,7 +87,7 @@ export function SchemaPlaygroundEditor() {
 		data: schemaMetadata,
 		isLoading,
 		error,
-	} = useSchema(isNewSchema ? undefined : schemaName)
+	} = useSchema(schemaName && schemaName !== 'new' ? schemaName : undefined)
 
 	if (!isNewSchema && isLoading) {
 		return (
@@ -143,9 +138,9 @@ function SchemaEditorContentWithState({
 }
 
 function SchemaEditorInner() {
-	const navigate = useNavigate()
 	const { state, setViewMode, updateSchema, generatedCode } = useSchemaBuilder()
 	const [addFieldOpen, setAddFieldOpen] = useState(false)
+	const [optionsOpen, setOptionsOpen] = useState(false)
 
 	const handleDeploy = async () => {
 		// TODO: Implement actual deployment
@@ -216,6 +211,15 @@ function SchemaEditorInner() {
 					</div>
 
 					<div className="flex items-center gap-2">
+						<Button
+							variant="outline"
+							size="icon"
+							className="h-8 w-8"
+							onClick={() => setOptionsOpen(true)}
+							title="Schema Options"
+						>
+							<Settings2 className="h-4 w-4" />
+						</Button>
 						<Button variant="outline" size="sm" disabled>
 							Preview API
 						</Button>
@@ -248,37 +252,6 @@ function SchemaEditorInner() {
 									</div>
 								</div>
 
-								{/* Schema Options */}
-								<div className="p-4 bg-background border rounded-xl space-y-4">
-									<h3 className="text-sm font-semibold">Schema Options</h3>
-									<div className="flex flex-wrap gap-6">
-										<div className="flex items-center gap-2">
-											<Switch
-												id="versioning"
-												checked={state.schema.versioning}
-												onCheckedChange={(checked) =>
-													updateSchema({ versioning: checked })
-												}
-											/>
-											<label htmlFor="versioning" className="text-sm cursor-pointer">
-												Enable Versioning
-											</label>
-										</div>
-										<div className="flex items-center gap-2">
-											<Switch
-												id="i18n"
-												checked={state.schema.i18n}
-												onCheckedChange={(checked) =>
-													updateSchema({ i18n: checked })
-												}
-											/>
-											<label htmlFor="i18n" className="text-sm cursor-pointer">
-												Enable i18n
-											</label>
-										</div>
-									</div>
-								</div>
-
 								{/* Field List */}
 								<FieldList onAddField={() => setAddFieldOpen(true)} />
 							</div>
@@ -299,8 +272,9 @@ function SchemaEditorInner() {
 				)}
 			</div>
 
-			{/* Add Field Dialog */}
+			{/* Dialogs */}
 			<AddFieldDialog open={addFieldOpen} onOpenChange={setAddFieldOpen} />
+			<SchemaOptionsDialog open={optionsOpen} onOpenChange={setOptionsOpen} />
 		</div>
 	)
 }

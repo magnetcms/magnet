@@ -6,17 +6,37 @@ export interface InternationalizationOptions {
 	defaultLocale: string
 }
 
+export interface PlaygroundOptions {
+	/**
+	 * Path to the directory where module folders will be created
+	 * @example './src/modules'
+	 */
+	modulesPath?: string
+	/**
+	 * @deprecated Use modulesPath instead
+	 * Path to the directory where schema files will be saved
+	 */
+	schemasPath?: string
+}
+
 export class MagnetModuleOptions {
 	db: DBConfig
 	jwt: {
 		secret: string
 	}
 	internationalization?: InternationalizationOptions
+	playground?: PlaygroundOptions
 
-	constructor({ db, jwt, internationalization }: MagnetModuleOptions) {
+	constructor({
+		db,
+		jwt,
+		internationalization,
+		playground,
+	}: MagnetModuleOptions) {
 		this.db = db
 		this.jwt = jwt
 		this.internationalization = internationalization
+		this.playground = playground
 	}
 }
 

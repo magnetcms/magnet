@@ -9,7 +9,7 @@ import {
 	Input,
 	Label,
 } from '@magnet/ui/components'
-import { cn } from '@magnet/ui/lib/utils'
+import { cn } from '@magnet/ui/lib'
 import { useState } from 'react'
 import {
 	FIELD_TYPES,
