@@ -1,7 +1,18 @@
-import { SchemaProperty, UISelect, UITypes } from '@magnet/common'
+import {
+	SchemaProperty,
+	UICombobox,
+	UIMultiSelect,
+	UISelect,
+	UITypes,
+} from '@magnet/common'
 import {
 	RHFCheckbox,
+	RHFCombobox,
 	RHFDatePicker,
+	RHFFileUpload,
+	RHFMultiSelect,
+	RHFPhone,
+	RHFQuantity,
 	RHFRadioGroup,
 	RHFSelect,
 	RHFSwitch,
@@ -26,6 +37,18 @@ export const fieldRenderer: Record<
 		/>
 	),
 	code: (_prop) => <div>code</div>,
+	combobox: (prop) => (
+		<RHFCombobox
+			key={prop.name}
+			name={prop.name}
+			label={capitalize(prop.ui?.label || prop.name)}
+			description={prop.ui?.description}
+			options={(prop.ui as UICombobox).options.map((option) => ({
+				value: option.value,
+				label: option.key,
+			}))}
+		/>
+	),
 	date: (prop) => (
 		<RHFDatePicker
 			key={prop.name}
@@ -43,8 +66,28 @@ export const fieldRenderer: Record<
 			description={prop.ui?.description}
 		/>
 	),
+	fileUpload: (prop) => (
+		<RHFFileUpload
+			key={prop.name}
+			name={prop.name}
+			label={capitalize(prop.ui?.label || prop.name)}
+			description={prop.ui?.description}
+		/>
+	),
 	group: (_prop) => <div>group</div>,
 	json: (_prop) => <div>json</div>,
+	multiSelect: (prop) => (
+		<RHFMultiSelect
+			key={prop.name}
+			name={prop.name}
+			label={capitalize(prop.ui?.label || prop.name)}
+			description={prop.ui?.description}
+			options={(prop.ui as UIMultiSelect).options.map((option) => ({
+				value: option.value,
+				label: option.key,
+			}))}
+		/>
+	),
 	number: (prop) => (
 		<RHFText
 			key={prop.name}
@@ -54,7 +97,23 @@ export const fieldRenderer: Record<
 			description={prop.ui?.description}
 		/>
 	),
+	phone: (prop) => (
+		<RHFPhone
+			key={prop.name}
+			name={prop.name}
+			label={capitalize(prop.ui?.label || prop.name)}
+			description={prop.ui?.description}
+		/>
+	),
 	point: (_prop) => <div>point</div>,
+	quantity: (prop) => (
+		<RHFQuantity
+			key={prop.name}
+			name={prop.name}
+			label={capitalize(prop.ui?.label || prop.name)}
+			description={prop.ui?.description}
+		/>
+	),
 	radio: (prop) => (
 		<RHFRadioGroup
 			key={prop.name}
@@ -85,19 +144,35 @@ export const fieldRenderer: Record<
 			description={prop.ui?.description}
 		/>
 	),
-	select: (prop) => (
-		<RHFSelect
-			key={prop.name}
-			name={prop.name}
-			label={capitalize(prop.ui?.label || prop.name)}
-			description={prop.ui?.description}
-			multiple={(prop.ui as UISelect).multi}
-			options={(prop.ui as UISelect).options.map((option) => ({
-				value: option.value,
-				label: option.key,
-			}))}
-		/>
-	),
+	select: (prop) => {
+		const ui = prop.ui as UISelect
+		if (ui.multi) {
+			return (
+				<RHFMultiSelect
+					key={prop.name}
+					name={prop.name}
+					label={capitalize(ui.label || prop.name)}
+					description={ui.description}
+					options={ui.options.map((option) => ({
+						value: option.value,
+						label: option.key,
+					}))}
+				/>
+			)
+		}
+		return (
+			<RHFSelect
+				key={prop.name}
+				name={prop.name}
+				label={capitalize(ui.label || prop.name)}
+				description={ui.description}
+				options={ui.options.map((option) => ({
+					value: option.value,
+					label: option.key,
+				}))}
+			/>
+		)
+	},
 	switch: (prop) => (
 		<RHFSwitch
 			key={prop.name}

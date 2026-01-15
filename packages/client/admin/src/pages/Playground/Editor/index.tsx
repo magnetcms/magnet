@@ -1,0 +1,308 @@
+import {
+	Button,
+	Input,
+	Separator,
+	Spinner,
+	Switch,
+} from '@magnet/ui/components'
+import { AlertCircle, Boxes, Info, Rocket } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useSchema } from '~/hooks/useDiscovery'
+import {
+	SchemaBuilderContext,
+	useSchemaBuilder,
+	useSchemaBuilderState,
+} from '../hooks/useSchemaBuilder'
+import type { SchemaBuilderState, SchemaField } from '../types/builder.types'
+import { DEFAULT_BUILDER_STATE } from '../types/builder.types'
+import { AddFieldDialog } from './AddFieldDialog'
+import { CodePreview } from './CodePreview'
+import { FieldList } from './FieldList'
+import { FieldSettingsPanel } from './FieldSettingsPanel'
+import { ViewToggle } from './ViewToggle'
+
+/**
+ * Transform SchemaMetadata from discovery API to builder state
+ */
+function schemaMetadataToBuilderState(
+	name: string,
+	metadata: any,
+): SchemaBuilderState {
+	return {
+		schema: {
+			name: name.charAt(0).toUpperCase() + name.slice(1),
+			apiId: name,
+			versioning: metadata.options?.versioning ?? true,
+			i18n: metadata.options?.i18n ?? true,
+		},
+		fields:
+			metadata.properties?.map((prop: any, index: number) => ({
+				id: `field_${index}_${prop.name}`,
+				name: prop.name,
+				displayName: prop.ui?.label || prop.name,
+				type: inferFieldType(prop),
+				tsType: prop.type || 'string',
+				prop: {
+					required: prop.required || false,
+					unique: prop.unique || false,
+					intl: prop.intl || false,
+					hidden: prop.hidden || false,
+					readonly: prop.readonly || false,
+				},
+				ui: prop.ui || {},
+				validations: (prop.validations || []).map((v: any) => ({
+					type: v.name || v.type,
+					constraints: v.constraints,
+				})),
+			})) || [],
+		selectedFieldId: null,
+		viewMode: 'builder',
+		isDirty: false,
+		lastSaved: null,
+		isNew: false,
+	}
+}
+
+/**
+ * Infer field type from property metadata
+ */
+function inferFieldType(prop: any): SchemaField['type'] {
+	const uiType = prop.ui?.type
+	if (uiType === 'switch' || uiType === 'checkbox') return 'boolean'
+	if (uiType === 'date') return 'date'
+	if (uiType === 'number') return 'number'
+	if (uiType === 'select' || uiType === 'radio') return 'select'
+	if (uiType === 'relationship') return 'relation'
+
+	const tsType = prop.type?.toLowerCase()
+	if (tsType === 'number') return 'number'
+	if (tsType === 'boolean') return 'boolean'
+	if (tsType === 'date') return 'date'
+
+	return 'text'
+}
+
+export function SchemaPlaygroundEditor() {
+	const { schemaName } = useParams<{ schemaName: string }>()
+	const isNewSchema = !schemaName || schemaName === 'new'
+
+	// For existing schemas, fetch metadata
+	const {
+		data: schemaMetadata,
+		isLoading,
+		error,
+	} = useSchema(isNewSchema ? undefined : schemaName)
+
+	if (!isNewSchema && isLoading) {
+		return (
+			<div className="flex justify-center items-center h-64">
+				<Spinner />
+			</div>
+		)
+	}
+
+	if (!isNewSchema && error) {
+		return (
+			<div className="p-4 border-l-4 border-red-500 bg-red-50 text-red-700 rounded m-8">
+				<h3 className="font-medium flex items-center gap-2">
+					<AlertCircle className="h-4 w-4" />
+					Error loading schema
+				</h3>
+				<p className="text-sm mt-1">{error.message}</p>
+			</div>
+		)
+	}
+
+	// If editing existing schema, transform metadata to builder state
+	const initialState =
+		!isNewSchema && schemaMetadata
+			? schemaMetadataToBuilderState(schemaName!, schemaMetadata)
+			: { ...DEFAULT_BUILDER_STATE, isNew: true }
+
+	return (
+		<SchemaEditorContentWithState
+			key={schemaName || 'new'}
+			initialState={initialState}
+		/>
+	)
+}
+
+function SchemaEditorContentWithState({
+	initialState,
+}: {
+	initialState: SchemaBuilderState
+}) {
+	const context = useSchemaBuilderState(initialState)
+
+	return (
+		<SchemaBuilderContext.Provider value={context}>
+			<SchemaEditorInner />
+		</SchemaBuilderContext.Provider>
+	)
+}
+
+function SchemaEditorInner() {
+	const navigate = useNavigate()
+	const { state, setViewMode, updateSchema, generatedCode } = useSchemaBuilder()
+	const [addFieldOpen, setAddFieldOpen] = useState(false)
+
+	const handleDeploy = async () => {
+		// TODO: Implement actual deployment
+		alert(
+			`Deploy functionality will be implemented in the backend phase.\n\nGenerated code:\n\n${generatedCode}`,
+		)
+	}
+
+	return (
+		<div className="flex flex-col h-full">
+			{/* Header */}
+			<header className="border-b bg-background/80 backdrop-blur-sm z-10 sticky top-0">
+				{/* Breadcrumbs */}
+				<div className="flex items-center justify-between px-6 py-3 border-b border-muted/50">
+					<nav className="flex items-center text-xs text-muted-foreground font-medium select-none">
+						<Link
+							to="/playground"
+							className="hover:text-foreground transition-colors"
+						>
+							Playground
+						</Link>
+						<span className="mx-2 text-muted-foreground/50">/</span>
+						<span className="text-foreground">
+							{state.schema.name || 'New Schema'}
+						</span>
+					</nav>
+
+					<div className="flex items-center gap-3">
+						{state.isDirty && (
+							<span className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200">
+								<div className="w-1 h-1 rounded-full bg-amber-500" />
+								Unsaved changes
+							</span>
+						)}
+						{state.lastSaved && (
+							<span className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium text-muted-foreground bg-muted border">
+								<div className="w-1 h-1 rounded-full bg-emerald-500" />
+								Saved
+							</span>
+						)}
+					</div>
+				</div>
+
+				{/* Title & Actions */}
+				<div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 gap-4">
+					<div className="flex items-center gap-4">
+						<div className="flex items-center gap-3">
+							<div className="p-2 bg-muted rounded-md border">
+								<Boxes className="h-5 w-5 text-muted-foreground" />
+							</div>
+							<div>
+								<Input
+									value={state.schema.name}
+									onChange={(e) => updateSchema({ name: e.target.value })}
+									placeholder="SchemaName"
+									className="text-lg font-semibold tracking-tight border-none shadow-none p-0 h-auto focus-visible:ring-0"
+								/>
+								<p className="text-xs text-muted-foreground font-mono">
+									api::{state.schema.name?.toLowerCase() || 'schema'}.
+									{state.schema.name?.toLowerCase() || 'schema'}
+								</p>
+							</div>
+						</div>
+
+						<Separator orientation="vertical" className="h-8" />
+
+						<ViewToggle value={state.viewMode} onChange={setViewMode} />
+					</div>
+
+					<div className="flex items-center gap-2">
+						<Button variant="outline" size="sm" disabled>
+							Preview API
+						</Button>
+						<Button
+							size="sm"
+							onClick={handleDeploy}
+							disabled={!state.schema.name}
+						>
+							<Rocket className="h-4 w-4 mr-2" />
+							Deploy Changes
+						</Button>
+					</div>
+				</div>
+			</header>
+
+			{/* Main Content */}
+			<div className="flex-1 flex overflow-hidden">
+				{state.viewMode === 'builder' ? (
+					<>
+						{/* Builder View */}
+						<div className="flex-1 overflow-y-auto p-8 bg-muted/30">
+							<div className="max-w-3xl mx-auto space-y-6">
+								{/* Info Alert */}
+								<div className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-3">
+									<Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+									<div className="text-xs text-blue-900">
+										<span className="font-medium">Schema Guidelines:</span>{' '}
+										Keep field names in camelCase for better compatibility.
+										Changes here will generate TypeScript code with decorators.
+									</div>
+								</div>
+
+								{/* Schema Options */}
+								<div className="p-4 bg-background border rounded-xl space-y-4">
+									<h3 className="text-sm font-semibold">Schema Options</h3>
+									<div className="flex flex-wrap gap-6">
+										<div className="flex items-center gap-2">
+											<Switch
+												id="versioning"
+												checked={state.schema.versioning}
+												onCheckedChange={(checked) =>
+													updateSchema({ versioning: checked })
+												}
+											/>
+											<label htmlFor="versioning" className="text-sm cursor-pointer">
+												Enable Versioning
+											</label>
+										</div>
+										<div className="flex items-center gap-2">
+											<Switch
+												id="i18n"
+												checked={state.schema.i18n}
+												onCheckedChange={(checked) =>
+													updateSchema({ i18n: checked })
+												}
+											/>
+											<label htmlFor="i18n" className="text-sm cursor-pointer">
+												Enable i18n
+											</label>
+										</div>
+									</div>
+								</div>
+
+								{/* Field List */}
+								<FieldList onAddField={() => setAddFieldOpen(true)} />
+							</div>
+						</div>
+
+						{/* Settings Panel */}
+						<div className="w-80 border-l bg-background shrink-0">
+							<FieldSettingsPanel />
+						</div>
+					</>
+				) : (
+					/* Code/JSON View */
+					<div className="flex-1 p-8 bg-muted/30">
+						<div className="max-w-4xl mx-auto h-full">
+							<CodePreview mode={state.viewMode} />
+						</div>
+					</div>
+				)}
+			</div>
+
+			{/* Add Field Dialog */}
+			<AddFieldDialog open={addFieldOpen} onOpenChange={setAddFieldOpen} />
+		</div>
+	)
+}
+
+export default SchemaPlaygroundEditor

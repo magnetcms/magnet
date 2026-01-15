@@ -21,6 +21,8 @@ import ContentManagerViewerLivePreview from '~/pages/ContentManager/Item/Viewer/
 import ContentManagerViewerVersions from '~/pages/ContentManager/Item/Viewer/Versions'
 import HomePage from '~/pages/Home'
 import NotFound from '~/pages/NotFound'
+import Playground from '~/pages/Playground'
+import { SchemaPlaygroundEditor } from '~/pages/Playground/Editor'
 import Settings from '~/pages/Settings'
 import SettingsEdit from '~/pages/Settings/Edit'
 
@@ -92,6 +94,24 @@ export const routes = [
 												],
 											},
 										],
+									},
+								],
+							},
+							{
+								path: 'playground',
+								element: <Outlet />,
+								children: [
+									{
+										path: '',
+										element: <Playground />,
+									},
+									{
+										path: 'new',
+										element: <SchemaPlaygroundEditor />,
+									},
+									{
+										path: ':schemaName',
+										element: <SchemaPlaygroundEditor />,
 									},
 								],
 							},

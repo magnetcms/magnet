@@ -415,7 +415,7 @@ const SortableItem = React.forwardRef<HTMLDivElement, SortableItemProps>(
 						{
 							'touch-none select-none': asHandle,
 							'cursor-default': context.flatCursor,
-							'data-[dragging]:cursor-grabbing': !context.flatCursor,
+							'data-dragging:cursor-grabbing': !context.flatCursor,
 							'cursor-grab': !isDragging && asHandle && !context.flatCursor,
 							'opacity-50': isDragging,
 							'pointer-events-none opacity-50': disabled,
@@ -467,7 +467,7 @@ const SortableItemHandle = React.forwardRef<
 				'select-none disabled:pointer-events-none disabled:opacity-50',
 				context.flatCursor
 					? 'cursor-default'
-					: 'cursor-grab data-[dragging]:cursor-grabbing',
+					: 'cursor-grab data-dragging:cursor-grabbing',
 				className,
 			)}
 			disabled={isDisabled}

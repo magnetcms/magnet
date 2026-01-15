@@ -5,12 +5,17 @@ export type UITypes =
 	| 'blocks'
 	| 'checkbox'
 	| 'code'
+	| 'combobox'
 	| 'date'
 	| 'email'
+	| 'fileUpload'
 	| 'group'
 	| 'json'
+	| 'multiSelect'
 	| 'number'
+	| 'phone'
 	| 'point'
+	| 'quantity'
 	| 'radio'
 	| 'relationship'
 	| 'richText'
@@ -51,4 +56,14 @@ export type UISelect = UIBase & {
 	options: UISelectItem[]
 }
 
-export type UIDecoratorOptions = UITab | UISide | UISelect
+export type UIMultiSelect = UIBase & {
+	type: 'multiSelect'
+	options: UISelectItem[]
+}
+
+export type UICombobox = UIBase & {
+	type: 'combobox'
+	options: UISelectItem[]
+}
+
+export type UIDecoratorOptions = UITab | UISide | UISelect | UIMultiSelect | UICombobox

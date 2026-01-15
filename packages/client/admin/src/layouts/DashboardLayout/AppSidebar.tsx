@@ -8,12 +8,12 @@ import {
 import { names } from '@magnet/utils'
 import {
 	AudioWaveform,
+	Boxes,
 	BookOpen,
 	Command,
 	Database,
 	GalleryVerticalEnd,
 	Settings2,
-	SquareTerminal,
 } from 'lucide-react'
 import * as React from 'react'
 import { useAdmin } from '~/contexts/useAdmin'
@@ -67,9 +67,16 @@ export const AppSidebar = ({
 		},
 		{
 			title: 'Playground',
-			url: '/',
-			icon: SquareTerminal,
-			items: [{ title: 'Content', url: '/' }],
+			url: '/playground',
+			icon: Boxes,
+			items: [
+				{ title: 'All Schemas', url: '/playground' },
+				{ title: 'Create New', url: '/playground/new' },
+				...contentManagerItems.map((item) => ({
+					title: item.title,
+					url: `/playground/${item.url.split('/').pop()}`,
+				})),
+			],
 		},
 		{
 			title: 'Settings',

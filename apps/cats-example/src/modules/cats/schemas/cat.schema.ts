@@ -47,7 +47,7 @@ export class Cat {
 
 	@Prop({ required: true })
 	@Validators(IsPhoneNumber(), IsNotEmpty())
-	@UI({ side: true })
+	@UI({ side: true, type: 'phone' })
 	ownerPhone: string
 
 	@Prop({ required: true })
