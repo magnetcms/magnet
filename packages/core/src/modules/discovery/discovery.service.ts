@@ -44,18 +44,24 @@ export class DiscoveryService implements OnModuleInit {
 	}
 
 	getDiscoveredSettingsSchemas(): string[] {
-		return this.settingsSchemas.map((schema) => schema.name)
+		// Return lowercase names to match URL conventions
+		return this.settingsSchemas.map((schema) => schema.name.toLowerCase())
 	}
 
 	getDiscoveredSettingsSchemaNames(): string[] {
-		return this.settingsSchemas.map((schema) => schema.name)
+		// Return lowercase names to match URL conventions
+		return this.settingsSchemas.map((schema) => schema.name.toLowerCase())
 	}
 
 	getDiscoveredSettingsSchema(
 		name: string,
 	): SchemaMetadata | { error: string } {
+		// Case-insensitive lookup
+		const lowerName = name.toLowerCase()
 		return (
-			this.settingsSchemas.find((schema) => schema.name === name) || {
+			this.settingsSchemas.find(
+				(schema) => schema.name.toLowerCase() === lowerName,
+			) || {
 				error: 'Schema not found',
 			}
 		)

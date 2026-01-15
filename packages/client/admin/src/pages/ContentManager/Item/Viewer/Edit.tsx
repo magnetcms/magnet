@@ -6,18 +6,31 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { FormBuilder } from '~/components/FormBuilder'
 import { Head } from '~/components/Head'
+import { LocaleSwitcher, type LocaleOption } from '~/components/LocaleSwitcher'
+import { StatusIndicator } from '~/components/StatusIndicator'
 import { useAdapter } from '~/core/provider/MagnetProvider'
 import { useContentManager } from '~/hooks/useContentManager'
-import type { ContentData } from '~/core/adapters/types'
+import type { ContentData, LocaleStatus } from '~/core/adapters/types'
+
+// Default locales - should be fetched from settings
+const DEFAULT_LOCALES: LocaleOption[] = [
+	{ code: 'en', name: 'English' },
+	{ code: 'es', name: 'Spanish' },
+	{ code: 'fr', name: 'French' },
+	{ code: 'de', name: 'German' },
+	{ code: 'pt', name: 'Portuguese' },
+]
 
 const ContentManagerViewerEdit = () => {
-	const { id, schema: schemaName } = useParams()
+	const { id: documentId, schema: schemaName } = useParams()
 	const navigate = useNavigate()
 	const queryClient = useQueryClient()
 	const adapter = useAdapter()
-	const isCreating = !id || id === 'create'
-	const [locale, setLocale] = useState<string | null>(null)
-	const [version, setVersion] = useState<string | null>(null)
+	const isCreating = !documentId || documentId === 'create'
+
+	// State for locale and status
+	const [currentLocale, setCurrentLocale] = useState('en')
+	const [currentStatus, setCurrentStatus] = useState<'draft' | 'published'>('draft')
 
 	// Get schema metadata and name information
 	const contentManager = useContentManager()
@@ -25,29 +38,44 @@ const ContentManagerViewerEdit = () => {
 
 	const { name, schemaMetadata } = contentManager
 
+	// Fetch locale statuses for the document
+	const { data: localeStatuses } = useQuery({
+		queryKey: ['content', schemaName, documentId, 'locales'],
+		queryFn: () => adapter.content.getLocaleStatuses(name.key, documentId as string),
+		enabled: !isCreating && !!documentId,
+	})
+
 	// Fetch item if editing
 	const { data: item, isLoading: isLoadingItem } = useQuery({
-		queryKey: ['content', schemaName, id, locale, version],
-		queryFn: () => {
-			return adapter.content.get(name.key, id as string, {
-				locale: locale || undefined,
-				version: version || undefined,
-			})
-		},
-		enabled: !isCreating && !!id,
+		queryKey: ['content', schemaName, documentId, currentLocale, currentStatus],
+		queryFn: () =>
+			adapter.content.get<ContentData>(name.key, documentId as string, {
+				locale: currentLocale,
+				status: currentStatus,
+			}),
+		enabled: !isCreating && !!documentId,
+	})
+
+	// Fetch versions for the current locale
+	const { data: versions } = useQuery({
+		queryKey: ['content', schemaName, documentId, 'versions', currentLocale],
+		queryFn: () =>
+			adapter.content.getVersions(name.key, documentId as string, currentLocale),
+		enabled: !isCreating && !!documentId,
 	})
 
 	// Create mutation
 	const createMutation = useMutation({
-		mutationFn: (data: ContentData) => {
-			return adapter.content.create<ContentData & { id: string }>(name.key, data)
-		},
+		mutationFn: (data: ContentData) =>
+			adapter.content.create<ContentData & { documentId: string }>(name.key, data, {
+				locale: currentLocale,
+			}),
 		onSuccess: (data) => {
-			toast('Content created', {
+			toast.success('Content created', {
 				description: `${name.title} was created successfully`,
 			})
 			queryClient.invalidateQueries({ queryKey: ['content', schemaName] })
-			navigate(`/content-manager/${name.key}/${data.id}`)
+			navigate(`/content-manager/${name.key}/${data.documentId}`)
 		},
 		onError: (error) => {
 			toast.error(`Failed to create ${name.title}: ${error.message}`)
@@ -56,20 +84,77 @@ const ContentManagerViewerEdit = () => {
 
 	// Update mutation
 	const updateMutation = useMutation({
-		mutationFn: (data: ContentData) => {
-			return adapter.content.update(name.key, id as string, data, {
-				locale: locale || undefined,
-				version: version || undefined,
-			})
-		},
+		mutationFn: (data: ContentData) =>
+			adapter.content.update(name.key, documentId as string, data, {
+				locale: currentLocale,
+				status: currentStatus,
+			}),
 		onSuccess: () => {
-			toast('Content updated', {
+			toast.success('Content updated', {
 				description: `${name.title} was updated successfully`,
 			})
-			queryClient.invalidateQueries({ queryKey: ['content', schemaName, id] })
+			queryClient.invalidateQueries({
+				queryKey: ['content', schemaName, documentId],
+			})
 		},
 		onError: (error) => {
 			toast.error(`Failed to update ${name.title}: ${error.message}`)
+		},
+	})
+
+	// Publish mutation
+	const publishMutation = useMutation({
+		mutationFn: () =>
+			adapter.content.publish(name.key, documentId as string, {
+				locale: currentLocale,
+			}),
+		onSuccess: () => {
+			toast.success('Content published', {
+				description: `${name.title} (${currentLocale}) was published successfully`,
+			})
+			queryClient.invalidateQueries({
+				queryKey: ['content', schemaName, documentId],
+			})
+		},
+		onError: (error) => {
+			toast.error(`Failed to publish: ${error.message}`)
+		},
+	})
+
+	// Unpublish mutation
+	const unpublishMutation = useMutation({
+		mutationFn: () =>
+			adapter.content.unpublish(name.key, documentId as string, currentLocale),
+		onSuccess: () => {
+			toast.success('Content unpublished', {
+				description: `${name.title} (${currentLocale}) was unpublished`,
+			})
+			queryClient.invalidateQueries({
+				queryKey: ['content', schemaName, documentId],
+			})
+			// Switch to draft view after unpublishing
+			setCurrentStatus('draft')
+		},
+		onError: (error) => {
+			toast.error(`Failed to unpublish: ${error.message}`)
+		},
+	})
+
+	// Add locale mutation
+	const addLocaleMutation = useMutation({
+		mutationFn: (locale: string) =>
+			adapter.content.addLocale(name.key, documentId as string, locale, {}),
+		onSuccess: (_, locale) => {
+			toast.success('Locale added', {
+				description: `${locale} translation was created`,
+			})
+			queryClient.invalidateQueries({
+				queryKey: ['content', schemaName, documentId],
+			})
+			setCurrentLocale(locale)
+		},
+		onError: (error) => {
+			toast.error(`Failed to add locale: ${error.message}`)
 		},
 	})
 
@@ -82,26 +167,31 @@ const ContentManagerViewerEdit = () => {
 		}
 	}
 
-	// Locales that can be selected (hardcoded for now, should be fetched from API)
-	const locales = [
-		{ name: 'English', code: 'en' },
-		{ name: 'Spanish', code: 'es' },
-		{ name: 'French', code: 'fr' },
-	]
+	// Handle locale change
+	const handleLocaleChange = (locale: string) => {
+		setCurrentLocale(locale)
+		// Reset to draft when changing locale
+		setCurrentStatus('draft')
+	}
 
-	// Versions that can be selected (for edit mode)
-	const { data: versions, isLoading: isLoadingVersions } = useQuery({
-		queryKey: ['versions', schemaName, id],
-		queryFn: () => {
-			return adapter.history.getVersions(id as string, name.key)
-		},
-		enabled: !isCreating && !!id,
-	})
+	// Handle add locale
+	const handleAddLocale = (locale: string) => {
+		addLocaleMutation.mutate(locale)
+	}
+
+	// Get current locale status
+	const currentLocaleStatus = localeStatuses?.[currentLocale] as LocaleStatus | undefined
 
 	// Loading state
-	if (isCreating ? false : isLoadingItem || isLoadingVersions) {
+	if (!isCreating && isLoadingItem) {
 		return <Spinner />
 	}
+
+	const isMutating =
+		createMutation.isPending ||
+		updateMutation.isPending ||
+		publishMutation.isPending ||
+		unpublishMutation.isPending
 
 	return (
 		<div className="flex flex-col gap-4 w-full">
@@ -119,7 +209,7 @@ const ContentManagerViewerEdit = () => {
 
 						{/* Save button */}
 						<Button
-							disabled={createMutation.isPending || updateMutation.isPending}
+							disabled={isMutating}
 							onClick={() => {
 								const form = document.querySelector('form')
 								if (form)
@@ -136,49 +226,58 @@ const ContentManagerViewerEdit = () => {
 				}
 			/>
 
-			{/* Locale and version selectors */}
+			{/* Locale switcher and status indicator */}
 			{!isCreating && (
-				<div className="bg-card border rounded-md p-4 flex flex-wrap gap-4">
-					{/* Locale selector */}
-					<div className="flex flex-col gap-1">
-						<label htmlFor="locale-select" className="text-sm font-medium">
-							Locale
-						</label>
-						<select
-							id="locale-select"
-							className="h-9 rounded-md border px-3 py-1"
-							value={locale || ''}
-							onChange={(e) => setLocale(e.target.value || null)}
-						>
-							<option value="">Default</option>
-							{locales.map((loc) => (
-								<option key={loc.code} value={loc.code}>
-									{loc.name}
-								</option>
-							))}
-						</select>
+				<div className="bg-card border rounded-md p-4 flex flex-wrap items-center justify-between gap-4">
+					<div className="flex items-center gap-4">
+						{/* Locale selector */}
+						<LocaleSwitcher
+							currentLocale={currentLocale}
+							locales={DEFAULT_LOCALES}
+							localeStatuses={localeStatuses}
+							onLocaleChange={handleLocaleChange}
+							onAddLocale={handleAddLocale}
+							disabled={isMutating || addLocaleMutation.isPending}
+						/>
+
+						{/* Status toggle */}
+						<div className="flex items-center gap-2">
+							<Button
+								variant={currentStatus === 'draft' ? 'default' : 'outline'}
+								size="sm"
+								onClick={() => setCurrentStatus('draft')}
+								disabled={!currentLocaleStatus?.hasDraft}
+							>
+								Draft
+							</Button>
+							<Button
+								variant={currentStatus === 'published' ? 'default' : 'outline'}
+								size="sm"
+								onClick={() => setCurrentStatus('published')}
+								disabled={!currentLocaleStatus?.hasPublished}
+							>
+								Published
+							</Button>
+						</div>
 					</div>
 
-					{/* Version selector */}
-					<div className="flex flex-col gap-1">
-						<label htmlFor="version-select" className="text-sm font-medium">
-							Version
-						</label>
-						<select
-							id="version-select"
-							className="h-9 rounded-md border px-3 py-1"
-							value={version || ''}
-							onChange={(e) => setVersion(e.target.value || null)}
-							disabled={!versions || versions.length === 0}
-						>
-							<option value="">Current</option>
-							{versions?.map((ver) => (
-								<option key={ver.versionId} value={ver.versionId}>
-									{ver.status} - {new Date(ver.createdAt).toLocaleString()}
-								</option>
-							))}
-						</select>
-					</div>
+					{/* Status indicator with publish/unpublish */}
+					<StatusIndicator
+						status={currentStatus}
+						hasPublished={currentLocaleStatus?.hasPublished}
+						onPublish={() => publishMutation.mutate()}
+						onUnpublish={() => unpublishMutation.mutate()}
+						isPublishing={publishMutation.isPending}
+						isUnpublishing={unpublishMutation.isPending}
+						disabled={isMutating}
+					/>
+				</div>
+			)}
+
+			{/* Version info */}
+			{!isCreating && versions && versions.length > 0 && (
+				<div className="text-sm text-muted-foreground">
+					{versions.length} version(s) for {currentLocale}
 				</div>
 			)}
 
@@ -188,7 +287,7 @@ const ContentManagerViewerEdit = () => {
 			<FormBuilder
 				schema={schemaMetadata as SchemaMetadata}
 				onSubmit={handleSubmit}
-				initialValues={item}
+				initialValues={Array.isArray(item) ? item[0] : item}
 			/>
 		</div>
 	)

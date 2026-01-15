@@ -1,6 +1,7 @@
 import {
 	BaseSchema,
 	DatabaseAdapter,
+	getSchemaOptions,
 	MagnetModuleOptions,
 	MongooseConfig,
 } from '@magnet/common'
@@ -8,17 +9,17 @@ import { DynamicModule, Injectable, Type } from '@nestjs/common'
 import { MongooseModule, SchemaFactory, getModelToken } from '@nestjs/mongoose'
 import mongoose, { Document, Model as MongooseModel, Schema } from 'mongoose'
 
-import { InternationalizationService } from './internationalization/intl.service'
+import { DocumentPluginService } from './document/document.plugin'
 import { createModel } from './mongoose.model'
 
 @Injectable()
 class MongooseAdapter extends DatabaseAdapter {
 	private options: MagnetModuleOptions | null = null
-	private readonly intlService: InternationalizationService
+	private readonly documentPlugin: DocumentPluginService
 
 	constructor() {
 		super()
-		this.intlService = new InternationalizationService()
+		this.documentPlugin = new DocumentPluginService()
 	}
 
 	connect(options: MagnetModuleOptions): DynamicModule {
@@ -43,13 +44,14 @@ class MongooseAdapter extends DatabaseAdapter {
 	forFeature(schemas: Type | Type[]): DynamicModule {
 		const schemaArray = Array.isArray(schemas) ? schemas : [schemas]
 
-		const schemasFactory = schemaArray.map((schema) => {
-			const mongooseSchema = SchemaFactory.createForClass(schema)
+		const schemasFactory = schemaArray.map((schemaClass) => {
+			const mongooseSchema = SchemaFactory.createForClass(schemaClass)
 
-			this.applyInternationalization(mongooseSchema)
+			// Apply document plugin based on schema options and intl properties
+			this.applyDocumentPlugin(mongooseSchema, schemaClass)
 
 			return {
-				name: schema.name,
+				name: schemaClass.name,
 				schema: mongooseSchema,
 			}
 		})
@@ -68,10 +70,19 @@ class MongooseAdapter extends DatabaseAdapter {
 	}
 
 	/**
-	 * Apply internationalization to a schema if it has properties with intl: true
-	 * @param schema The Mongoose schema to apply internationalization to
+	 * Apply document plugin to a schema based on schema options and intl properties
+	 * This adds documentId, locale, and status fields for the document-based i18n system
+	 * @param schema The Mongoose schema to apply the plugin to
+	 * @param schemaClass The schema class to read options from
 	 */
-	private applyInternationalization(schema: Schema) {
+	private applyDocumentPlugin(schema: Schema, schemaClass: Type) {
+		const options = getSchemaOptions(schemaClass)
+
+		// Skip document plugin entirely if i18n is disabled for this schema
+		if (options.i18n === false) {
+			return
+		}
+
 		// Check if the schema has any properties with intl: true
 		let hasIntlProperties = false
 		schema.eachPath((path, schemaType) => {
@@ -80,18 +91,9 @@ class MongooseAdapter extends DatabaseAdapter {
 			}
 		})
 
-		// If the schema has intl properties, apply the internationalization plugin
+		// If the schema has intl properties, apply the document plugin
 		if (hasIntlProperties) {
-			// Get the locales from the application settings or use default
-			// If we have options with internationalization settings, use those
-			const intlSettings = this.options?.internationalization
-			if (intlSettings) {
-				const locales = intlSettings.locales
-				const defaultLocale = intlSettings.defaultLocale
-				this.intlService.applyIntl(schema, { locales, defaultLocale })
-			} else {
-				throw new Error('Missing internationalization configurations')
-			}
+			this.documentPlugin.applyDocumentPlugin(schema, { hasIntl: true })
 		}
 	}
 }

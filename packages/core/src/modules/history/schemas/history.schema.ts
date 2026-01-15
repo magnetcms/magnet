@@ -11,6 +11,12 @@ export class History {
 	@Prop({ required: true })
 	collection!: string
 
+	@Prop({ required: true, default: 'en' })
+	locale!: string
+
+	@Prop({ required: true, default: 1 })
+	versionNumber!: number
+
 	@Prop({ required: true, default: 'draft' as const })
 	status!: 'draft' | 'published' | 'archived'
 

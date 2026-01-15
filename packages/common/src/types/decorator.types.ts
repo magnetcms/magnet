@@ -29,3 +29,8 @@ export type PropOptions = {
 export type BaseSchemaOptions = {
 	timestamps?: boolean
 }
+
+export type SchemaOptions = {
+	versioning?: boolean
+	i18n?: boolean
+}

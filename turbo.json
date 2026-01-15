@@ -18,6 +18,11 @@
       "cache": false,
       "interactive": true,
       "persistent": true
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "env": ["API_BASE_URL", "UI_BASE_URL", "CI"]
     }
   }
 }

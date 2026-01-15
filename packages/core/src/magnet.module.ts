@@ -5,7 +5,9 @@ import { RestrictedGuard } from './guards/restricted.guard'
 import { GlobalExceptionFilter } from './handlers'
 import { AdminModule } from './modules/admin/admin.module'
 import { AuthModule } from './modules/auth/auth.module'
+import { ContentModule } from './modules/content/content.module'
 import { DatabaseModule } from './modules/database/database.module'
+import { DocumentModule } from './modules/document/document.module'
 import { HealthModule } from './modules/health/health.module'
 import { HistoryModule } from './modules/history/history.module'
 import { SettingsModule } from './modules/settings/settings.module'
@@ -24,8 +26,10 @@ export class MagnetModule {
 			imports: [
 				AdminModule,
 				AuthModule,
+				ContentModule,
 				DBModule,
 				DiscoveryModule,
+				DocumentModule,
 				SettingsModule,
 				HistoryModule,
 				HealthModule,
@@ -38,8 +42,10 @@ export class MagnetModule {
 			],
 			exports: [
 				MagnetModuleOptions,
+				ContentModule,
 				DiscoveryModule,
 				DBModule,
+				DocumentModule,
 				SettingsModule,
 				HistoryModule,
 				HealthModule,

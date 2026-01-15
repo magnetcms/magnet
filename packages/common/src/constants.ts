@@ -2,6 +2,7 @@ export const RESOLVER_METADATA_KEY = 'magnet:resolver'
 export const RESOLVE_METADATA_KEY = 'magnet:resolve'
 
 export const SCHEMA_METADATA_KEY = 'magnet:schema'
+export const SCHEMA_OPTIONS_METADATA_KEY = 'magnet:schema:options'
 export const BASE_SCHEMA_METADATA_KEY = 'magnet:schema:base'
 export const PROP_METADATA_KEY = 'magnet:schema:prop'
 export const UI_METADATA_KEY = 'magnet:schema:ui'

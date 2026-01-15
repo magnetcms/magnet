@@ -13,10 +13,11 @@ export class HistoryService {
 	) {}
 
 	/**
-	 * Create a new version of a document
+	 * Create a new version of a document for a specific locale
 	 * @param documentId Document ID
 	 * @param collection Collection name
 	 * @param data Document data
+	 * @param locale The locale for this version
 	 * @param status Version status
 	 * @param createdBy User ID who created the version
 	 * @param notes Optional notes about the version
@@ -28,15 +29,25 @@ export class HistoryService {
 		status: 'draft' | 'published' | 'archived' = 'draft',
 		createdBy?: string,
 		notes?: string,
+		locale = 'en',
 	): Promise<History> {
+		// Get the next version number for this document+locale
+		const versionNumber = await this.getNextVersionNumber(
+			documentId,
+			collection,
+			locale,
+		)
+
 		// Generate a unique version ID
-		const versionId = `${documentId}_${Date.now()}`
+		const versionId = `${documentId}_${locale}_${Date.now()}`
 
 		// Create the version
 		const version = await this.historyModel.create({
 			documentId,
 			versionId,
 			collection,
+			locale,
+			versionNumber,
 			status,
 			data,
 			createdAt: new Date(),
@@ -44,14 +55,37 @@ export class HistoryService {
 			notes,
 		})
 
-		// Cleanup old versions if needed
-		await this.cleanupOldVersions(documentId, collection)
+		// Cleanup old versions if needed (per locale)
+		await this.cleanupOldVersions(documentId, collection, locale)
 
 		return version
 	}
 
 	/**
-	 * Find all versions of a document
+	 * Get the next version number for a document+locale
+	 */
+	private async getNextVersionNumber(
+		documentId: string,
+		collection: string,
+		locale: string,
+	): Promise<number> {
+		const versions = await this.findVersionsByLocale(
+			documentId,
+			collection,
+			locale,
+		)
+
+		if (versions.length === 0) {
+			return 1
+		}
+
+		// Find the highest version number
+		const maxVersion = Math.max(...versions.map((v) => v.versionNumber || 1))
+		return maxVersion + 1
+	}
+
+	/**
+	 * Find all versions of a document (all locales)
 	 * @param documentId The document ID
 	 * @param collection The collection name
 	 */
@@ -66,6 +100,24 @@ export class HistoryService {
 	}
 
 	/**
+	 * Find all versions of a document for a specific locale
+	 * @param documentId The document ID
+	 * @param collection The collection name
+	 * @param locale The locale to filter by
+	 */
+	async findVersionsByLocale(
+		documentId: string,
+		collection: string,
+		locale: string,
+	): Promise<History[]> {
+		return this.historyModel.findMany({
+			documentId,
+			collection,
+			locale,
+		} as Partial<History>)
+	}
+
+	/**
 	 * Find a specific version by ID
 	 * @param versionId The version ID
 	 */
@@ -76,27 +128,56 @@ export class HistoryService {
 	}
 
 	/**
-	 * Find the latest version of a document with a specific status
+	 * Find a specific version by document ID, locale, and version number
 	 * @param documentId The document ID
 	 * @param collection The collection name
-	 * @param status The version status
+	 * @param locale The locale
+	 * @param versionNumber The version number
+	 */
+	async findVersionByNumber(
+		documentId: string,
+		collection: string,
+		locale: string,
+		versionNumber: number,
+	): Promise<History | null> {
+		return this.historyModel.findOne({
+			documentId,
+			collection,
+			locale,
+			versionNumber,
+		} as Partial<History>)
+	}
+
+	/**
+	 * Find the latest version of a document for a specific locale
+	 * @param documentId The document ID
+	 * @param collection The collection name
+	 * @param locale The locale
+	 * @param status Optional status filter
 	 */
 	async findLatestVersion(
 		documentId: string,
 		collection: string,
-		status: 'draft' | 'published' | 'archived',
+		locale: string,
+		status?: 'draft' | 'published' | 'archived',
 	): Promise<History | null> {
-		const versions = await this.historyModel.findMany({
+		const query: Partial<History> = {
 			documentId,
 			collection,
-			status,
-		} as Partial<History>)
+			locale,
+		}
+
+		if (status) {
+			query.status = status
+		}
+
+		const versions = await this.historyModel.findMany(query as Partial<History>)
 
 		if (!versions.length) return null
 
-		// Sort by createdAt in descending order and return the first one
+		// Sort by versionNumber in descending order and return the first one
 		const sortedVersions = versions.sort(
-			(a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+			(a, b) => (b.versionNumber || 0) - (a.versionNumber || 0),
 		)
 		return sortedVersions[0] || null
 	}
@@ -157,6 +238,27 @@ export class HistoryService {
 	}
 
 	/**
+	 * Get all locales that have versions for a document
+	 * @param documentId The document ID
+	 * @param collection The collection name
+	 */
+	async getVersionedLocales(
+		documentId: string,
+		collection: string,
+	): Promise<string[]> {
+		const versions = await this.findVersions(documentId, collection)
+		const locales = new Set<string>()
+
+		for (const version of versions) {
+			if (version.locale) {
+				locales.add(version.locale)
+			}
+		}
+
+		return Array.from(locales)
+	}
+
+	/**
 	 * Get versioning settings
 	 */
 	async getVersioningSettings(): Promise<Versioning> {
@@ -207,24 +309,30 @@ export class HistoryService {
 	}
 
 	/**
-	 * Clean up old versions to maintain the maximum number of versions
+	 * Clean up old versions to maintain the maximum number of versions per locale
 	 * @param documentId The document ID
 	 * @param collection The collection name
+	 * @param locale The locale to clean up
 	 */
 	private async cleanupOldVersions(
 		documentId: string,
 		collection: string,
+		locale: string,
 	): Promise<void> {
 		const maxVersions = await this.getMaxVersions()
 
-		// Get all versions for this document
-		const versions = await this.findVersions(documentId, collection)
+		// Get all versions for this document+locale
+		const versions = await this.findVersionsByLocale(
+			documentId,
+			collection,
+			locale,
+		)
 
 		// If we have more versions than the maximum, delete the oldest ones
 		if (versions.length > maxVersions) {
-			// Sort by createdAt in ascending order (oldest first)
+			// Sort by versionNumber in ascending order (oldest first)
 			const sortedVersions = versions.sort(
-				(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+				(a, b) => (a.versionNumber || 0) - (b.versionNumber || 0),
 			)
 
 			// Get the versions to delete (oldest ones)

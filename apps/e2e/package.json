@@ -1,0 +1,22 @@
+{
+  "name": "@magnet/e2e",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:api": "playwright test --project=api",
+    "test:ui": "playwright test --project=chromium",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "lint": "biome check .",
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "@repo/biome": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "^5.7.3"
+  }
+}

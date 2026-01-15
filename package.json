@@ -6,7 +6,8 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "check-types": "turbo run check-types",
-    "dev:admin": "node dev-admin.js"
+    "dev:admin": "node dev-admin.js",
+    "test:e2e": "turbo run test --filter=@magnet/e2e"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

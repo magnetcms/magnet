@@ -116,7 +116,27 @@ export type ContentData = Record<string, unknown>
 
 export interface ContentQueryOptions {
 	locale?: string
+	status?: 'draft' | 'published'
 	version?: string
+}
+
+export interface ContentCreateOptions {
+	locale?: string
+	createdBy?: string
+}
+
+export interface ContentUpdateOptions extends ContentQueryOptions {
+	updatedBy?: string
+}
+
+export interface ContentPublishOptions {
+	locale?: string
+	publishedBy?: string
+}
+
+export interface LocaleStatus {
+	hasDraft: boolean
+	hasPublished: boolean
 }
 
 export interface VersionInfo {
@@ -183,23 +203,67 @@ export interface MagnetApiAdapter {
 	}
 
 	/**
-	 * Content CRUD operations
+	 * Content CRUD operations with i18n and versioning support
 	 */
 	content: {
-		list<T = ContentData>(schema: string): Promise<T[]>
+		list<T = ContentData>(
+			schema: string,
+			options?: ContentQueryOptions,
+		): Promise<T[]>
 		get<T = ContentData>(
 			schema: string,
-			id: string,
+			documentId: string,
 			options?: ContentQueryOptions,
+		): Promise<T | T[]>
+		create<T = ContentData>(
+			schema: string,
+			data: Partial<T>,
+			options?: ContentCreateOptions,
 		): Promise<T>
-		create<T = ContentData>(schema: string, data: Partial<T>): Promise<T>
 		update<T = ContentData>(
 			schema: string,
-			id: string,
+			documentId: string,
 			data: Partial<T>,
-			options?: ContentQueryOptions,
+			options?: ContentUpdateOptions,
 		): Promise<T>
-		delete(schema: string, id: string): Promise<void>
+		delete(schema: string, documentId: string): Promise<void>
+		publish<T = ContentData>(
+			schema: string,
+			documentId: string,
+			options?: ContentPublishOptions,
+		): Promise<T>
+		unpublish(
+			schema: string,
+			documentId: string,
+			locale?: string,
+		): Promise<{ success: boolean }>
+		addLocale<T = ContentData>(
+			schema: string,
+			documentId: string,
+			locale: string,
+			data: Partial<T>,
+			createdBy?: string,
+		): Promise<T>
+		deleteLocale(
+			schema: string,
+			documentId: string,
+			locale: string,
+		): Promise<{ success: boolean }>
+		getLocaleStatuses(
+			schema: string,
+			documentId: string,
+		): Promise<Record<string, LocaleStatus>>
+		getVersions(
+			schema: string,
+			documentId: string,
+			locale?: string,
+		): Promise<VersionInfo[]>
+		restoreVersion<T = ContentData>(
+			schema: string,
+			documentId: string,
+			locale: string,
+			version: number,
+		): Promise<T>
 	}
 
 	/**

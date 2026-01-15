@@ -3,8 +3,12 @@ import type {
 	AuthStatus,
 	AuthTokens,
 	AuthUser,
+	ContentCreateOptions,
 	ContentData,
+	ContentPublishOptions,
 	ContentQueryOptions,
+	ContentUpdateOptions,
+	LocaleStatus,
 	LoginCredentials,
 	MagnetApiAdapter,
 	RegisterCredentials,
@@ -182,52 +186,149 @@ export function createHttpAdapter(config: HttpAdapterConfig): MagnetApiAdapter {
 		},
 
 		content: {
-			async list<T = ContentData>(schema: string): Promise<T[]> {
-				return request<T[]>(`/${schema}s`)
+			async list<T = ContentData>(
+				schema: string,
+				options?: ContentQueryOptions,
+			): Promise<T[]> {
+				const url = buildUrl(`/content/${schema}`, {
+					locale: options?.locale,
+					status: options?.status,
+				})
+				return request<T[]>(url)
 			},
 
 			async get<T = ContentData>(
 				schema: string,
-				id: string,
+				documentId: string,
 				options?: ContentQueryOptions,
-			): Promise<T> {
-				const url = buildUrl(`/${schema}s/${id}`, {
+			): Promise<T | T[]> {
+				const url = buildUrl(`/content/${schema}/${documentId}`, {
 					locale: options?.locale,
-					version: options?.version,
+					status: options?.status,
 				})
-				return request<T>(url)
+				return request<T | T[]>(url)
 			},
 
 			async create<T = ContentData>(
 				schema: string,
 				data: Partial<T>,
+				options?: ContentCreateOptions,
 			): Promise<T> {
-				return request<T>(`/${schema}s`, {
+				return request<T>(`/content/${schema}`, {
 					method: 'POST',
-					body: data,
+					body: {
+						data,
+						locale: options?.locale,
+						createdBy: options?.createdBy,
+					},
 				})
 			},
 
 			async update<T = ContentData>(
 				schema: string,
-				id: string,
+				documentId: string,
 				data: Partial<T>,
-				options?: ContentQueryOptions,
+				options?: ContentUpdateOptions,
 			): Promise<T> {
-				const url = buildUrl(`/${schema}s/${id}`, {
+				const url = buildUrl(`/content/${schema}/${documentId}`, {
 					locale: options?.locale,
-					version: options?.version,
+					status: options?.status,
 				})
 				return request<T>(url, {
 					method: 'PUT',
-					body: data,
+					body: {
+						data,
+						updatedBy: options?.updatedBy,
+					},
 				})
 			},
 
-			async delete(schema: string, id: string): Promise<void> {
-				await request(`/${schema}s/${id}`, {
+			async delete(schema: string, documentId: string): Promise<void> {
+				await request(`/content/${schema}/${documentId}`, {
 					method: 'DELETE',
 				})
+			},
+
+			async publish<T = ContentData>(
+				schema: string,
+				documentId: string,
+				options?: ContentPublishOptions,
+			): Promise<T> {
+				const url = buildUrl(`/content/${schema}/${documentId}/publish`, {
+					locale: options?.locale,
+				})
+				return request<T>(url, {
+					method: 'POST',
+					body: { publishedBy: options?.publishedBy },
+				})
+			},
+
+			async unpublish(
+				schema: string,
+				documentId: string,
+				locale?: string,
+			): Promise<{ success: boolean }> {
+				const url = buildUrl(`/content/${schema}/${documentId}/unpublish`, {
+					locale,
+				})
+				return request<{ success: boolean }>(url, { method: 'POST' })
+			},
+
+			async addLocale<T = ContentData>(
+				schema: string,
+				documentId: string,
+				locale: string,
+				data: Partial<T>,
+				createdBy?: string,
+			): Promise<T> {
+				return request<T>(`/content/${schema}/${documentId}/locale`, {
+					method: 'POST',
+					body: { locale, data, createdBy },
+				})
+			},
+
+			async deleteLocale(
+				schema: string,
+				documentId: string,
+				locale: string,
+			): Promise<{ success: boolean }> {
+				return request<{ success: boolean }>(
+					`/content/${schema}/${documentId}/locale/${locale}`,
+					{ method: 'DELETE' },
+				)
+			},
+
+			async getLocaleStatuses(
+				schema: string,
+				documentId: string,
+			): Promise<Record<string, LocaleStatus>> {
+				return request<Record<string, LocaleStatus>>(
+					`/content/${schema}/${documentId}/locales`,
+				)
+			},
+
+			async getVersions(
+				schema: string,
+				documentId: string,
+				locale?: string,
+			): Promise<VersionInfo[]> {
+				const url = buildUrl(`/content/${schema}/${documentId}/versions`, {
+					locale,
+				})
+				return request<VersionInfo[]>(url)
+			},
+
+			async restoreVersion<T = ContentData>(
+				schema: string,
+				documentId: string,
+				locale: string,
+				version: number,
+			): Promise<T> {
+				const url = buildUrl(`/content/${schema}/${documentId}/restore`, {
+					locale,
+					version: String(version),
+				})
+				return request<T>(url, { method: 'POST' })
 			},
 		},
 

@@ -38,8 +38,35 @@ export class SettingsController {
 		return setting
 	}
 
-	@Put(':key')
-	async updateSetting(@Param('key') key: string, @Body('value') value: any) {
+	@Put(':group')
+	async updateSettingsByGroup(
+		@Param('group') _group: string,
+		@Body() data: Record<string, any>,
+	) {
+		try {
+			const results: Record<string, any> = {}
+
+			// Update each setting in the group
+			for (const [key, value] of Object.entries(data)) {
+				const updated = await this.settingsService.updateSetting(key, value)
+				results[key] = updated
+			}
+
+			return results
+		} catch (error: unknown) {
+			throw new HttpException(
+				error instanceof Error ? error.message : 'Failed to update settings',
+				HttpStatus.BAD_REQUEST,
+			)
+		}
+	}
+
+	@Put(':group/:key')
+	async updateSetting(
+		@Param('group') _group: string,
+		@Param('key') key: string,
+		@Body('value') value: any,
+	) {
 		try {
 			return await this.settingsService.updateSetting(key, value)
 		} catch (error: unknown) {

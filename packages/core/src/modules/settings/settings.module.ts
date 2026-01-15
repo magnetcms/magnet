@@ -99,7 +99,9 @@ export class SettingsModule {
 			{
 				provide: `${schema.name}_SETTING_REGISTRATION`,
 				useFactory: async (settingsService: SettingsService): Promise<Type> => {
-					await settingsService.registerSettingsFromSchema(schema.name, schema)
+					// Use lowercase group name to match frontend URL conventions
+					const groupName = schema.name.toLowerCase()
+					await settingsService.registerSettingsFromSchema(groupName, schema)
 					return schema
 				},
 				inject: [SettingsService],
