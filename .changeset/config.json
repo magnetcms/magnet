@@ -13,7 +13,7 @@
   "ignore": [
     "auth-example",
     "cats-example",
-    "@magnet/docs",
-    "@magnet/e2e"
+    "@magnet-cms/docs",
+    "@magnet-cms/e2e"
   ]
 }

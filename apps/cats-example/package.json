@@ -13,10 +13,10 @@
     "dev:debug": "nest start --debug --watch"
   },
   "dependencies": {
-    "@magnet/adapter-mongoose": "workspace:*",
-    "@magnet/common": "workspace:*",
-    "@magnet/core": "workspace:*",
-    "@magnet/plugin-content-builder": "workspace:*",
+    "@magnet-cms/adapter-mongoose": "workspace:*",
+    "@magnet-cms/common": "workspace:*",
+    "@magnet-cms/core": "workspace:*",
+    "@magnet-cms/plugin-content-builder": "workspace:*",
     "@nestjs/common": "^11.0.8",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.8",

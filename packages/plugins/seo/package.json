@@ -1,5 +1,5 @@
 {
-  "name": "@magnet/plugin-seo",
+  "name": "@magnet-cms/plugin-seo",
   "version": "0.1.0",
   "description": "SEO plugin for Magnet CMS",
   "type": "module",

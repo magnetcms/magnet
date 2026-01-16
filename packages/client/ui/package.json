@@ -1,5 +1,5 @@
 {
-  "name": "@magnet/ui",
+  "name": "@magnet-cms/ui",
   "version": "0.1.0",
   "description": "UI component library for Magnet CMS",
   "type": "module",
@@ -39,7 +39,7 @@
     "react-router-dom": "^7.0.0"
   },
   "devDependencies": {
-    "@magnet/utils": "workspace:*",
+    "@magnet-cms/utils": "workspace:*",
     "@repo/biome": "workspace:*",
     "@repo/tsup": "workspace:*",
     "@repo/typescript-config": "workspace:*",

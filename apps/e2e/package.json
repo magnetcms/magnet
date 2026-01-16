@@ -1,5 +1,5 @@
 {
-  "name": "@magnet/e2e",
+  "name": "@magnet-cms/e2e",
   "version": "0.0.1",
   "private": true,
   "type": "module",

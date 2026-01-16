@@ -1,5 +1,5 @@
 {
-  "name": "@magnet/core",
+  "name": "@magnet-cms/core",
   "version": "1.0.0",
   "description": "Core NestJS module for Magnet CMS",
   "type": "module",
@@ -27,9 +27,9 @@
     "@nestjs/terminus": "^11.0.0"
   },
   "devDependencies": {
-    "@magnet/admin": "workspace:*",
-    "@magnet/common": "workspace:*",
-    "@magnet/utils": "workspace:*",
+    "@magnet-cms/admin": "workspace:*",
+    "@magnet-cms/common": "workspace:*",
+    "@magnet-cms/utils": "workspace:*",
     "@nestjs/axios": "^4.0.0",
     "@nestjs/common": "^11.0.8",
     "@nestjs/core": "^11.0.8",
@@ -50,7 +50,7 @@
     "sharp": "^0.33.5"
   },
   "peerDependencies": {
-    "@magnet/common": "workspace:*",
+    "@magnet-cms/common": "workspace:*",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",
