@@ -78,7 +78,8 @@ function inferFieldType(prop: any): SchemaField['type'] {
 	if (uiType === 'select' || uiType === 'radio') return 'select'
 	if (uiType === 'relationship') return 'relation'
 
-	const tsType = prop.type?.toLowerCase()
+	// prop.type can be a string, object, or array - only process if string
+	const tsType = typeof prop.type === 'string' ? prop.type.toLowerCase() : null
 	if (tsType === 'number') return 'number'
 	if (tsType === 'boolean') return 'boolean'
 	if (tsType === 'date') return 'date'

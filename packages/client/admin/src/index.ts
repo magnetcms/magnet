@@ -39,6 +39,13 @@ export { MagnetAdmin } from './MagnetAdmin'
 export type { MagnetAdminProps } from './MagnetAdmin'
 
 // =============================================================================
+// Admin Builder - For consumer apps with plugins
+// =============================================================================
+
+export { createMagnetAdmin } from './createMagnetAdmin'
+export type { MagnetAdminConfig } from './createMagnetAdmin'
+
+// =============================================================================
 // Core Provider
 // =============================================================================
 

@@ -58,5 +58,20 @@ export default defineConfig({
 	server: {
 		hmr: true,
 		port: 3001,
+		proxy: {
+			// Proxy API and plugin requests to the backend
+			'/api': {
+				target: 'http://localhost:3000',
+				changeOrigin: true,
+			},
+			'/plugins': {
+				target: 'http://localhost:3000',
+				changeOrigin: true,
+			},
+			'/admin-api': {
+				target: 'http://localhost:3000',
+				changeOrigin: true,
+			},
+		},
 	},
 })

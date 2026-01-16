@@ -1,12 +1,13 @@
 import { Toaster } from '@magnet/ui/components'
 import React, { Suspense } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, Route, Routes } from 'react-router-dom'
+import type { RouteObject } from 'react-router-dom'
 
 import { Loader } from '~/components/Loader'
 import { AdminProvider } from '~/contexts/useAdmin'
 import {
 	PluginRegistryProvider,
-	getRegisteredPluginRoutes,
+	usePluginRegistry,
 } from '~/core/plugins/PluginRegistry'
 import { PrivateRoute } from './PrivateRoute'
 import { PublicRoute } from './PublicRoute'
@@ -131,12 +132,57 @@ const coreDashboardRoutes = [
 ]
 
 /**
- * Combined dashboard routes: core routes + plugin routes
- * Plugin routes are registered via registerMagnetPlugin() and resolved at build time
+ * Dashboard content wrapper that waits for plugins and renders routes
  */
-const dashboardRoutes = [...coreDashboardRoutes, ...getRegisteredPluginRoutes()]
+function DashboardContent() {
+	const { isLoading } = usePluginRegistry()
 
-export const routes = [
+	if (isLoading) {
+		return <Loader />
+	}
+
+	return <DashboardLayout />
+}
+
+/**
+ * Recursively render route and its children
+ */
+function renderRoute(route: RouteObject, index: number): React.ReactNode {
+	return (
+		<Route key={index} path={route.path} element={route.element}>
+			{route.children?.map((child, childIndex) =>
+				renderRoute(child, childIndex),
+			)}
+		</Route>
+	)
+}
+
+/**
+ * Plugin route handler - renders plugin routes using Routes component
+ */
+function PluginRouteHandler() {
+	const { getPluginRoutes, isLoading } = usePluginRegistry()
+
+	if (isLoading) {
+		return <Loader />
+	}
+
+	const pluginRoutes = getPluginRoutes()
+
+	if (pluginRoutes.length === 0) {
+		return <NotFound />
+	}
+
+	// Render all plugin routes using Routes component
+	return (
+		<Routes>
+			{pluginRoutes.map((route, index) => renderRoute(route, index))}
+			<Route path="*" element={<NotFound />} />
+		</Routes>
+	)
+}
+
+export const routes: RouteObject[] = [
 	{
 		element: <RootLayout />,
 		children: [
@@ -145,9 +191,15 @@ export const routes = [
 				element: <PrivateRoute />,
 				children: [
 					{
-						path: '/',
-						element: <DashboardLayout />,
-						children: dashboardRoutes,
+						element: <DashboardContent />,
+						children: [
+							...coreDashboardRoutes,
+							// Catch-all for plugin routes
+							{
+								path: '*',
+								element: <PluginRouteHandler />,
+							},
+						],
 					},
 				],
 			},

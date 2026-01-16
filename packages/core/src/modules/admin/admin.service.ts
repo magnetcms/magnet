@@ -33,17 +33,18 @@ export class AdminService {
 
 	/**
 	 * Find the admin dist folder by checking common locations
+	 * Priority: Custom build > Default package
 	 */
 	private findAdminDistPath(): string {
 		const possiblePaths = [
+			// Custom build output (highest priority - allows plugin customization)
+			resolve(process.cwd(), 'dist/admin'),
+			resolve(process.cwd(), 'public/admin'),
 			// Monorepo development
 			resolve(process.cwd(), '../../packages/client/admin/dist/client'),
 			resolve(process.cwd(), '../packages/client/admin/dist/client'),
-			// Installed as dependency
+			// Installed as dependency (fallback)
 			resolve(process.cwd(), 'node_modules/@magnet/admin/dist/client'),
-			// Custom build output
-			resolve(process.cwd(), 'dist/admin'),
-			resolve(process.cwd(), 'public/admin'),
 		]
 
 		for (const path of possiblePaths) {

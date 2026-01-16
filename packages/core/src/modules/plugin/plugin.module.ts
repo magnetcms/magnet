@@ -3,6 +3,7 @@ import type { Type } from '@nestjs/common'
 import { DynamicModule, Module, Provider } from '@nestjs/common'
 import { DiscoveryModule } from '@nestjs/core'
 import { PLUGIN_METADATA } from './constants'
+import { PluginAssetsController } from './plugin-assets.controller'
 import { PluginRegistryService } from './plugin-registry.service'
 import { PluginController } from './plugin.controller'
 import { PluginService } from './plugin.service'
@@ -18,7 +19,7 @@ interface PluginOptions {
 @Module({
 	imports: [DiscoveryModule],
 	providers: [PluginService, PluginRegistryService],
-	controllers: [PluginController],
+	controllers: [PluginController, PluginAssetsController],
 	exports: [PluginService, PluginRegistryService],
 })
 export class PluginModule {
@@ -45,7 +46,7 @@ export class PluginModule {
 			module: PluginModule,
 			global: true,
 			imports: [DiscoveryModule],
-			controllers: [PluginController],
+			controllers: [PluginController, PluginAssetsController],
 			providers: [
 				PluginService,
 				PluginRegistryService,

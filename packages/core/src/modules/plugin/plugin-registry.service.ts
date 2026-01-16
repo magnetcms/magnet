@@ -1,4 +1,5 @@
 import type {
+	EnrichedPluginManifest,
 	PluginConfig,
 	PluginFrontendManifest,
 	PluginMetadata,
@@ -95,12 +96,16 @@ export class PluginRegistryService implements OnModuleInit {
 	}
 
 	/**
-	 * Get frontend manifests for all plugins
+	 * Get frontend manifests for all plugins with bundle URLs
+	 * Used by admin UI to dynamically load plugin frontends at runtime
 	 */
-	getFrontendManifests(): PluginFrontendManifest[] {
+	getFrontendManifests(): EnrichedPluginManifest[] {
 		return this.getAllPlugins()
 			.filter((p) => p.frontendManifest)
-			.map((p) => p.frontendManifest as PluginFrontendManifest)
+			.map((p) => ({
+				...p.frontendManifest,
+				bundleUrl: `/plugins/assets/${p.metadata.name}/bundle.iife.js`,
+			})) as EnrichedPluginManifest[]
 	}
 
 	/**

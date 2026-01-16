@@ -14,6 +14,14 @@ export interface FrontendPluginManifest {
 }
 
 /**
+ * Enriched manifest returned from backend with bundle URL
+ */
+export interface EnrichedPluginManifest extends FrontendPluginManifest {
+	/** URL to load the plugin's frontend bundle */
+	bundleUrl: string
+}
+
+/**
  * Route definition for plugin
  */
 export interface PluginRouteDefinition {

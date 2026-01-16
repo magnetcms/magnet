@@ -12,9 +12,9 @@ process.env.NODE_ENV = 'development'
 
 console.log('Starting admin development environment...')
 
-// Start NestJS server
-const nestjs = spawn('bun', ['run', 'start:dev'], {
-	cwd: projectRoot,
+// Start NestJS server from cats-example
+const nestjs = spawn('bun', ['run', 'dev'], {
+	cwd: resolve(projectRoot, 'apps', 'cats-example'),
 	stdio: 'inherit',
 	shell: true,
 	env: { ...process.env, NODE_ENV: 'development' },

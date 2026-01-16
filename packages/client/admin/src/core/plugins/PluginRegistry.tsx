@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -7,6 +6,7 @@ import {
 	Suspense,
 	createContext,
 	lazy,
+	useCallback,
 	useContext,
 	useEffect,
 	useMemo,
@@ -14,7 +14,14 @@ import {
 } from 'react'
 import type { RouteObject } from 'react-router-dom'
 import { useAdapter } from '../provider/MagnetProvider'
+import { exposePluginGlobals } from './globals'
+import {
+	getRegisteredPlugins,
+	initPluginRegistry,
+	loadPluginBundles,
+} from './loader'
 import type {
+	EnrichedPluginManifest,
 	FrontendPluginManifest,
 	PluginRegistrationFn,
 	PluginRouteDefinition,
@@ -24,57 +31,27 @@ import type {
 } from './types'
 
 // ============================================================================
-// Global Plugin Registrations (build-time)
+// Runtime Plugin Loading
 // ============================================================================
 
-const pluginRegistrations: PluginRegistrationFn[] = []
-let resolvedPluginsCache: Map<string, ResolvedPlugin> | null = null
-
 /**
- * Register a plugin at build time.
- * Called by plugin packages in their frontend/index.ts
- *
- * @example
- * ```ts
- * // In @magnet/plugin-content-builder/frontend/index.ts
- * import { registerMagnetPlugin } from '@magnet/admin'
- *
- * registerMagnetPlugin(() => ({
- *   manifest: {
- *     pluginName: 'content-builder',
- *     routes: [{ path: 'playground', componentId: 'PlaygroundIndex' }],
- *     sidebar: [{ id: 'playground', title: 'Playground', url: '/playground', icon: 'Boxes' }]
- *   },
- *   components: {
- *     PlaygroundIndex: () => import('./pages/Playground'),
- *   }
- * }))
- * ```
+ * @deprecated Use runtime plugin loading instead.
+ * Plugins now self-register via window.__MAGNET_PLUGINS__
  */
 export function registerMagnetPlugin(registration: PluginRegistrationFn): void {
-	pluginRegistrations.push(registration)
-	// Invalidate cache when new plugin is registered
-	resolvedPluginsCache = null
+	initPluginRegistry()
+	const { manifest, components } = registration()
+	window.__MAGNET_PLUGINS__?.push({ manifest, components })
 }
 
 /**
- * Get all registered plugin routes synchronously.
- * Used for static route definitions.
+ * @deprecated Use usePluginRoutes() hook inside PluginRegistryProvider instead.
+ * This function is kept for backwards compatibility but returns an empty array.
  */
 export function getRegisteredPluginRoutes(): RouteObject[] {
-	if (!resolvedPluginsCache) {
-		resolvedPluginsCache = new Map()
-		for (const registration of pluginRegistrations) {
-			try {
-				const { manifest, components } = registration()
-				const resolved = resolvePlugin(manifest, components)
-				resolvedPluginsCache.set(manifest.pluginName, resolved)
-			} catch (err) {
-				console.error('Failed to resolve plugin:', err)
-			}
-		}
-	}
-	return Array.from(resolvedPluginsCache.values()).flatMap((p) => p.routes)
+	// Routes are now resolved dynamically at runtime
+	// This function is deprecated - use usePluginRoutes() inside the provider
+	return []
 }
 
 // ============================================================================
@@ -85,7 +62,6 @@ interface PluginRegistryContextValue {
 	plugins: Map<string, ResolvedPlugin>
 	isLoading: boolean
 	error: Error | null
-	registerPlugin: (registration: PluginRegistrationFn) => void
 	getPluginRoutes: () => RouteObject[]
 	getSidebarItems: () => ResolvedSidebarItem[]
 }
@@ -107,78 +83,89 @@ export function PluginRegistryProvider({
 }: PluginRegistryProviderProps) {
 	const adapter = useAdapter()
 	const [plugins, setPlugins] = useState<Map<string, ResolvedPlugin>>(new Map())
+	const [isLoading, setIsLoading] = useState(true)
+	const [error, setError] = useState<Error | null>(null)
 
-	// Fetch plugin manifests from backend
-	const {
-		data: manifests,
-		isLoading,
-		error,
-	} = useQuery<FrontendPluginManifest[]>({
-		queryKey: ['plugins', 'manifests'],
-		queryFn: () => adapter.request('/plugins/manifests'),
-		staleTime: Number.POSITIVE_INFINITY, // Manifests don't change during session
-	})
-
-	// Process build-time registered plugins and backend manifests
+	// Load plugins at runtime
 	useEffect(() => {
-		const resolvedPlugins = new Map<string, ResolvedPlugin>()
-
-		// Process build-time registrations
-		for (const registration of pluginRegistrations) {
+		async function loadPlugins() {
 			try {
-				const { manifest, components } = registration()
-				const resolved = resolvePlugin(manifest, components)
-				resolvedPlugins.set(manifest.pluginName, resolved)
-			} catch (err) {
-				console.error('Failed to register plugin:', err)
-			}
-		}
+				// Expose shared dependencies as globals for plugin bundles
+				exposePluginGlobals()
 
-		// Merge with backend manifests (backend takes precedence for metadata)
-		if (manifests) {
-			for (const manifest of manifests) {
-				const existing = resolvedPlugins.get(manifest.pluginName)
-				if (existing) {
-					// Update metadata from backend
-					existing.manifest = { ...existing.manifest, ...manifest }
+				// Initialize the global plugin registry
+				initPluginRegistry()
+
+				// 1. Fetch manifests from backend (includes bundleUrls)
+				const manifests: EnrichedPluginManifest[] =
+					await adapter.request('/plugins/manifests')
+
+				console.log('[Magnet] Plugin manifests:', manifests)
+
+				// 2. Load each plugin bundle
+				const bundleUrls = manifests
+					.filter((m) => m.bundleUrl)
+					.map((m) => m.bundleUrl)
+
+				if (bundleUrls.length > 0) {
+					await loadPluginBundles(bundleUrls)
 				}
-				// Note: If no build-time registration, plugin is backend-only (no UI)
+
+				// 3. Collect registered plugins from window.__MAGNET_PLUGINS__
+				const registrations = getRegisteredPlugins()
+				console.log('[Magnet] Registered plugins:', registrations)
+
+				// 4. Resolve routes and components
+				const resolvedPlugins = new Map<string, ResolvedPlugin>()
+
+				for (const registration of registrations) {
+					try {
+						const resolved = resolvePlugin(
+							registration.manifest,
+							registration.components,
+						)
+						resolvedPlugins.set(registration.manifest.pluginName, resolved)
+					} catch (err) {
+						console.error(
+							`[Magnet] Failed to resolve plugin ${registration.manifest.pluginName}:`,
+							err,
+						)
+					}
+				}
+
+				setPlugins(resolvedPlugins)
+			} catch (err) {
+				console.error('[Magnet] Failed to load plugins:', err)
+				setError(
+					err instanceof Error ? err : new Error('Failed to load plugins'),
+				)
+			} finally {
+				setIsLoading(false)
 			}
 		}
 
-		setPlugins(resolvedPlugins)
-	}, [manifests])
+		loadPlugins()
+	}, [adapter])
 
-	const registerPlugin = (registration: PluginRegistrationFn) => {
-		try {
-			const { manifest, components } = registration()
-			const resolved = resolvePlugin(manifest, components)
-			setPlugins((prev) => new Map(prev).set(manifest.pluginName, resolved))
-		} catch (err) {
-			console.error('Failed to register plugin:', err)
-		}
-	}
-
-	const getPluginRoutes = (): RouteObject[] => {
+	const getPluginRoutes = useCallback((): RouteObject[] => {
 		return Array.from(plugins.values()).flatMap((p) => p.routes)
-	}
+	}, [plugins])
 
-	const getSidebarItems = (): ResolvedSidebarItem[] => {
+	const getSidebarItems = useCallback((): ResolvedSidebarItem[] => {
 		return Array.from(plugins.values())
 			.flatMap((p) => p.sidebarItems)
 			.sort((a, b) => a.order - b.order)
-	}
+	}, [plugins])
 
 	const contextValue = useMemo<PluginRegistryContextValue>(
 		() => ({
 			plugins,
 			isLoading,
-			error: error as Error | null,
-			registerPlugin,
+			error,
 			getPluginRoutes,
 			getSidebarItems,
 		}),
-		[plugins, isLoading, error],
+		[plugins, isLoading, error, getPluginRoutes, getSidebarItems],
 	)
 
 	return (
@@ -255,20 +242,31 @@ function resolvePlugin(
 
 /**
  * Resolve a route definition into a React Router route object
+ *
+ * If a route has children, we don't set element on the parent
+ * (the child with path: '' acts as the index route).
+ * This is because React Router requires parent elements to render <Outlet />
+ * for children to appear.
  */
 function resolveRoute(
 	routeDef: PluginRouteDefinition,
 	components: Map<string, React.LazyExoticComponent<ComponentType<unknown>>>,
 ): RouteObject {
 	const Component = components.get(routeDef.componentId)
+	const hasChildren = routeDef.children && routeDef.children.length > 0
 
-	return {
-		path: routeDef.path,
-		element: Component ? (
+	// If route has children, don't set element on parent
+	// The index child (path: '') will handle the default view
+	const element =
+		Component && !hasChildren ? (
 			<Suspense fallback={<div className="p-4">Loading...</div>}>
 				<Component />
 			</Suspense>
-		) : null,
+		) : null
+
+	return {
+		path: routeDef.path,
+		element,
 		children: routeDef.children?.map((child) =>
 			resolveRoute(child, components),
 		),

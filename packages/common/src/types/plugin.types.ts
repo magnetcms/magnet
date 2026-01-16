@@ -81,6 +81,15 @@ export interface PluginFrontendManifest {
 }
 
 /**
+ * Enriched plugin manifest with bundle URL for runtime loading
+ * Returned by GET /plugins/manifests endpoint
+ */
+export interface EnrichedPluginManifest extends PluginFrontendManifest {
+	/** URL to load the plugin's frontend bundle */
+	bundleUrl: string
+}
+
+/**
  * Plugin configuration passed to MagnetModule.forRoot
  */
 export interface PluginConfig {
