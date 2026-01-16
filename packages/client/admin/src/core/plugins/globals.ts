@@ -27,6 +27,7 @@ import {
 } from '~/components/PageHeader'
 // Admin exports for plugins
 import { AdminProvider, useAdmin } from '~/contexts/useAdmin'
+import { dialog, useDialog } from '~/core/dialog'
 import {
 	useAdapter,
 	useMagnet,
@@ -96,6 +97,9 @@ export function exposePluginGlobals(): void {
 		PageHeaderTabs,
 		Loader,
 		FormBuilder,
+		// Dialog service
+		dialog,
+		useDialog,
 		// Auth hooks
 		useAuth,
 		useLogin,

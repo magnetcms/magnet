@@ -3,7 +3,6 @@ import {
 	SidebarContent,
 	SidebarFooter,
 	SidebarHeader,
-	SidebarRail,
 } from '@magnet/ui/components'
 import { names } from '@magnet/utils'
 import { Database, ImageIcon, Settings2 } from 'lucide-react'
@@ -20,7 +19,12 @@ export const AppSidebar = ({
 	const { schemas, settings } = useAdmin()
 	const pluginSidebarItems = usePluginSidebarItems()
 
-	const contentManagerItems = schemas?.map((item: string) => {
+	// Filter out internal schemas like Media (has dedicated page)
+	const contentSchemas = schemas?.filter(
+		(item: string) => item.toLowerCase() !== 'media',
+	)
+
+	const contentManagerItems = contentSchemas?.map((item: string) => {
 		const name = names(item)
 		return {
 			title: name.title,
@@ -91,7 +95,6 @@ export const AppSidebar = ({
 			<SidebarFooter>
 				<NavUser />
 			</SidebarFooter>
-			<SidebarRail />
 		</Sidebar>
 	)
 }

@@ -1,10 +1,17 @@
 import type { PluginFrontendManifest, PluginMetadata } from '@magnet/common'
+import type { Type } from '@nestjs/common'
 import { Injectable } from '@nestjs/common'
-import { PLUGIN_FRONTEND_MANIFEST, PLUGIN_METADATA } from '../constants'
+import {
+	PLUGIN_FRONTEND_MANIFEST,
+	PLUGIN_METADATA,
+	PLUGIN_MODULE,
+} from '../constants'
 
-export interface PluginDecoratorOptions extends PluginMetadata {
+export interface PluginDecoratorOptions extends Omit<PluginMetadata, 'module'> {
 	/** Frontend manifest for this plugin */
 	frontend?: Omit<PluginFrontendManifest, 'pluginName'>
+	/** NestJS module containing controllers/services (auto-imported) */
+	module?: Type<unknown>
 }
 
 /**
@@ -44,6 +51,11 @@ export function Plugin(options: PluginDecoratorOptions): ClassDecorator {
 				pluginName: options.name,
 			}
 			Reflect.defineMetadata(PLUGIN_FRONTEND_MANIFEST, frontendManifest, target)
+		}
+
+		// Store the module reference if provided
+		if (options.module) {
+			Reflect.defineMetadata(PLUGIN_MODULE, options.module, target)
 		}
 	}
 }

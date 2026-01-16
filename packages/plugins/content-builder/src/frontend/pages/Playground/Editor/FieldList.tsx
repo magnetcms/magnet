@@ -11,10 +11,11 @@ import type { SchemaField } from '../types/builder.types'
 import { FieldCard } from './FieldCard'
 
 interface FieldListProps {
-	onAddField: () => void
+	onAddField?: () => void
+	readOnly?: boolean
 }
 
-export function FieldList({ onAddField }: FieldListProps) {
+export function FieldList({ onAddField, readOnly = false }: FieldListProps) {
 	const { state, selectField, deleteField, reorderFields } = useSchemaBuilder()
 
 	const handleReorder = (reorderedFields: SchemaField[]) => {
@@ -36,8 +37,23 @@ export function FieldList({ onAddField }: FieldListProps) {
 					<AlertCircle className="mx-auto h-10 w-10 mb-3 opacity-50" />
 					<p className="text-sm font-medium mb-1">No fields yet</p>
 					<p className="text-xs">
-						Add your first field to start building your schema
+						{readOnly
+							? 'This schema has no fields defined'
+							: 'Add your first field to start building your schema'}
 					</p>
+				</div>
+			) : readOnly ? (
+				// Read-only mode: simple list without drag/drop
+				<div className="divide-y">
+					{state.fields.map((field) => (
+						<FieldCard
+							key={field.id}
+							field={field}
+							isSelected={false}
+							showActions={false}
+							showDragHandle={false}
+						/>
+					))}
 				</div>
 			) : (
 				<Sortable
@@ -85,19 +101,21 @@ export function FieldList({ onAddField }: FieldListProps) {
 				</Sortable>
 			)}
 
-			{/* Add Field Button */}
-			<div className="p-2 bg-muted/30 border-t">
-				<button
-					type="button"
-					onClick={onAddField}
-					className="w-full py-2.5 rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50 transition-all text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center justify-center gap-2 group"
-				>
-					<div className="bg-muted rounded p-0.5 group-hover:bg-muted-foreground/20 transition-colors">
-						<Plus className="h-3 w-3" />
-					</div>
-					Add new field
-				</button>
-			</div>
+			{/* Add Field Button - only show in edit mode */}
+			{!readOnly && onAddField && (
+				<div className="p-2 bg-muted/30 border-t">
+					<button
+						type="button"
+						onClick={onAddField}
+						className="w-full py-2.5 rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50 transition-all text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center justify-center gap-2 group"
+					>
+						<div className="bg-muted rounded p-0.5 group-hover:bg-muted-foreground/20 transition-colors">
+							<Plus className="h-3 w-3" />
+						</div>
+						Add new field
+					</button>
+				</div>
+			)}
 		</div>
 	)
 }

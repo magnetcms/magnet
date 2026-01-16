@@ -12,6 +12,8 @@ export interface PluginMetadata {
 	version?: string
 	/** Plugin dependencies (other plugin names) */
 	dependencies?: string[]
+	/** NestJS module to be auto-imported (optional for backwards compatibility) */
+	module?: Type<unknown>
 }
 
 /**
@@ -126,4 +128,36 @@ export interface RegisteredPluginInfo {
 	dependencies?: string[]
 	frontend?: PluginFrontendManifest
 	options?: Record<string, unknown>
+}
+
+/**
+ * Interface for plugin lifecycle hooks.
+ * Plugins can implement these methods to respond to lifecycle events.
+ *
+ * @example
+ * ```ts
+ * @Plugin({ name: 'my-plugin', module: MyPluginModule })
+ * export class MyPlugin implements PluginLifecycle {
+ *   onPluginInit() {
+ *     console.log('Plugin initialized')
+ *   }
+ *
+ *   onPluginDestroy() {
+ *     console.log('Plugin destroyed')
+ *   }
+ * }
+ * ```
+ */
+export interface PluginLifecycle {
+	/**
+	 * Called after the plugin module is initialized.
+	 * Use this for plugin-specific setup that needs other services.
+	 */
+	onPluginInit?(): void | Promise<void>
+
+	/**
+	 * Called when the application is shutting down.
+	 * Use this for cleanup operations.
+	 */
+	onPluginDestroy?(): void | Promise<void>
 }

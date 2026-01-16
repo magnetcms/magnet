@@ -212,3 +212,10 @@ export type {
 	ResolvedPlugin,
 	ResolvedSidebarItem,
 } from './core/plugins'
+
+// =============================================================================
+// Dialog Service - For plugins to show dialogs
+// =============================================================================
+
+export { dialog, useDialog, DialogProvider } from './core/dialog'
+export type { DialogOptions, ConfirmOptions } from './core/dialog'

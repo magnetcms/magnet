@@ -1,13 +1,21 @@
-import type { PluginConfig, PluginModuleOptions } from '@magnet/common'
+import type {
+	PluginConfig,
+	PluginMetadata,
+	PluginModuleOptions,
+} from '@magnet/common'
 import type { Type } from '@nestjs/common'
 import { DynamicModule, Module, Provider } from '@nestjs/common'
 import { DiscoveryModule } from '@nestjs/core'
-import { PLUGIN_METADATA } from './constants'
+import {
+	PLUGIN_METADATA,
+	PLUGIN_MODULE,
+	getPluginOptionsToken,
+} from './constants'
 import { PluginAssetsController } from './plugin-assets.controller'
+import { PluginLifecycleService } from './plugin-lifecycle.service'
 import { PluginRegistryService } from './plugin-registry.service'
 import { PluginController } from './plugin.controller'
 import { PluginService } from './plugin.service'
-import type { PluginMetadata } from './types'
 
 /**
  * @deprecated Use PluginModuleOptions instead
@@ -41,15 +49,17 @@ export class PluginModule {
 	): DynamicModule {
 		const enabledPlugins = options.plugins.filter((p) => p.enabled !== false)
 		const pluginProviders = PluginModule.createPluginProviders(enabledPlugins)
+		const pluginModules = PluginModule.collectPluginModules(enabledPlugins)
 
 		return {
 			module: PluginModule,
 			global: true,
-			imports: [DiscoveryModule],
+			imports: [DiscoveryModule, ...pluginModules],
 			controllers: [PluginController, PluginAssetsController],
 			providers: [
 				PluginService,
 				PluginRegistryService,
+				PluginLifecycleService,
 				...pluginProviders,
 				{
 					provide: 'PLUGIN_OPTIONS',
@@ -60,7 +70,12 @@ export class PluginModule {
 					useValue: enabledPlugins,
 				},
 			],
-			exports: [PluginService, PluginRegistryService, ...pluginProviders],
+			exports: [
+				PluginService,
+				PluginRegistryService,
+				PluginLifecycleService,
+				...pluginProviders,
+			],
 		}
 	}
 
@@ -76,8 +91,32 @@ export class PluginModule {
 		return PluginModule.forRoot({ plugins: pluginConfigs })
 	}
 
+	/**
+	 * Collect NestJS modules from plugins that define them
+	 */
+	private static collectPluginModules(
+		plugins: PluginConfig[],
+	): Type<unknown>[] {
+		const modules: Type<unknown>[] = []
+
+		for (const config of plugins) {
+			const PluginClass = config.plugin
+			const pluginModule = Reflect.getMetadata(PLUGIN_MODULE, PluginClass) as
+				| Type<unknown>
+				| undefined
+
+			if (pluginModule) {
+				modules.push(pluginModule)
+			}
+		}
+
+		return modules
+	}
+
 	private static createPluginProviders(plugins: PluginConfig[]): Provider[] {
-		return plugins.map((config) => {
+		const providers: Provider[] = []
+
+		for (const config of plugins) {
 			const PluginClass = config.plugin
 			const metadata = Reflect.getMetadata(
 				PLUGIN_METADATA,
@@ -90,10 +129,28 @@ export class PluginModule {
 				)
 			}
 
-			return {
+			// Plugin instance provider
+			providers.push({
 				provide: `PLUGIN_${metadata.name}`,
 				useFactory: () => new PluginClass(),
-			}
-		})
+			})
+
+			// Plugin options provider (standardized token)
+			const optionsToken = getPluginOptionsToken(metadata.name)
+			providers.push({
+				provide: optionsToken,
+				useValue: config.options || {},
+			})
+
+			// Also provide with legacy token for backwards compatibility
+			// e.g., 'CONTENT_BUILDER_OPTIONS' for 'content-builder' plugin
+			const legacyToken = `${metadata.name.toUpperCase().replace(/-/g, '_')}_OPTIONS`
+			providers.push({
+				provide: legacyToken,
+				useValue: config.options || {},
+			})
+		}
+
+		return providers
 	}
 }

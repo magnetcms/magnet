@@ -78,14 +78,14 @@ export function FieldCard({
 				</div>
 
 				{/* Field Name & Type */}
-				<div>
-					<div className="flex items-center gap-2">
+				<div className="space-y-1">
+					<div className="flex items-center gap-3">
 						<span className="text-sm font-semibold">{field.displayName}</span>
 						<span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded border">
 							{field.name}
 						</span>
 					</div>
-					<div className="flex items-center gap-2 mt-0.5">
+					<div className="flex items-center gap-2 flex-wrap">
 						<span className="text-xs text-muted-foreground capitalize">
 							{definition?.label || field.type}
 						</span>
