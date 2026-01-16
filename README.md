@@ -225,10 +225,16 @@ bun run build
 - **Bundler**: tsup (for libraries), Vite (for apps)
 - **Linter/Formatter**: Biome
 
-## License
-
-[License information to be added]
-
 ## Contributing
 
-[Contributing guidelines to be added]
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+
+- How to report bugs
+- How to suggest features
+- Development setup and guidelines
+- Coding standards and conventions
+- Pull request process
+
+## License
+
+Magnet CMS is licensed under the [MIT License](LICENSE). See the LICENSE file for details.
