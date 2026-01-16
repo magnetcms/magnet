@@ -24,11 +24,10 @@ export const AuthLayout = () => {
 				<div className="relative z-20 mt-auto">
 					<blockquote className="space-y-2">
 						<p className="text-lg">
-							&ldquo;This library has saved me countless hours of work and
-							helped me deliver stunning designs to my clients faster than ever
-							before.&rdquo;
+							&ldquo;A flexible headless CMS that lets you focus on building
+							great content experiences without fighting the framework.&rdquo;
 						</p>
-						<footer className="text-sm">Sofia Davis</footer>
+						<footer className="text-sm">Magnet CMS</footer>
 					</blockquote>
 				</div>
 			</div>
