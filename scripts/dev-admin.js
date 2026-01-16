@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const projectRoot = resolve(__dirname, '..')
 
 // Set the NODE_ENV environment variable to development
 process.env.NODE_ENV = 'development'
@@ -13,7 +14,7 @@ console.log('Starting admin development environment...')
 
 // Start NestJS server
 const nestjs = spawn('bun', ['run', 'start:dev'], {
-	cwd: resolve(__dirname),
+	cwd: projectRoot,
 	stdio: 'inherit',
 	shell: true,
 	env: { ...process.env, NODE_ENV: 'development' },
@@ -21,7 +22,7 @@ const nestjs = spawn('bun', ['run', 'start:dev'], {
 
 // Start Vite dev server
 const vite = spawn('bun', ['run', 'dev'], {
-	cwd: resolve(__dirname, 'packages', 'client', 'admin'),
+	cwd: resolve(projectRoot, 'packages', 'client', 'admin'),
 	stdio: 'inherit',
 	shell: true,
 })
