@@ -1,7 +1,8 @@
 import { Button, Card, CardContent, Spinner } from '@magnet/ui/components'
 import { names } from '@magnet/utils'
-import { ChevronRight, Database, Info, Plus } from 'lucide-react'
+import { Boxes, ChevronRight, Database, Info, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { PageHeader } from '~/components/PageHeader'
 import { useAdmin } from '~/contexts/useAdmin'
 
 const Playground = () => {
@@ -26,24 +27,21 @@ const Playground = () => {
 	}
 
 	return (
-		<div className="space-y-8">
-			{/* Header */}
-			<div className="flex items-center justify-between">
-				<div>
-					<h2 className="text-2xl font-bold tracking-tight">
-						Schema Playground
-					</h2>
-					<p className="text-muted-foreground">
-						Create and edit content schemas visually, then deploy them to code
-					</p>
-				</div>
-				<Button onClick={() => navigate('/playground/new')}>
-					<Plus className="mr-2 h-4 w-4" />
-					Create Schema
-				</Button>
-			</div>
+		<div className="flex flex-col h-full">
+			<PageHeader
+				icon={Boxes}
+				title="Schema Playground"
+				description="Create and edit content schemas visually, then deploy them to code"
+				actions={
+					<Button onClick={() => navigate('/playground/new')}>
+						<Plus className="mr-2 h-4 w-4" />
+						Create Schema
+					</Button>
+				}
+			/>
 
-			{/* Info Banner */}
+			<div className="flex-1 overflow-y-auto p-6 space-y-6">
+				{/* Info Banner */}
 			<div className="p-4 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-3 dark:bg-blue-950/30 dark:border-blue-900">
 				<Info className="h-5 w-5 text-blue-500 mt-0.5 shrink-0" />
 				<div className="text-sm text-blue-900 dark:text-blue-100">
@@ -94,6 +92,7 @@ const Playground = () => {
 					})}
 				</div>
 			)}
+			</div>
 		</div>
 	)
 }

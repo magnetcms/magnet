@@ -57,7 +57,7 @@ export const AppSidebar = ({
 	]
 
 	return (
-		<Sidebar collapsible="icon" {...props}>
+		<Sidebar collapsible="icon" variant="inset" {...props}>
 			<SidebarHeader>
 				<EnvSwitcher />
 			</SidebarHeader>

@@ -1,7 +1,17 @@
-import { Button, Input, Separator, Spinner } from '@magnet/ui/components'
-import { AlertCircle, Boxes, Info, Rocket, Settings2 } from 'lucide-react'
+import { Button, Spinner } from '@magnet/ui/components'
+import {
+	AlertCircle,
+	Boxes,
+	Code2,
+	FileJson,
+	Info,
+	PencilRuler,
+	Rocket,
+	Settings2,
+} from 'lucide-react'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import { PageContent, PageHeader } from '~/components/PageHeader'
 import { useSchema } from '~/hooks/useDiscovery'
 import {
 	SchemaBuilderContext,
@@ -15,7 +25,6 @@ import { CodePreview } from './CodePreview'
 import { FieldList } from './FieldList'
 import { FieldSettingsPanel } from './FieldSettingsPanel'
 import { SchemaOptionsDialog } from './SchemaOptionsDialog'
-import { ViewToggle } from './ViewToggle'
 
 /**
  * Transform SchemaMetadata from discovery API to builder state
@@ -149,68 +158,37 @@ function SchemaEditorInner() {
 		)
 	}
 
+	const statusBadges = []
+	if (state.isDirty) {
+		statusBadges.push({ type: 'warning' as const, label: 'Unsaved changes', dot: true })
+	}
+	if (state.lastSaved) {
+		statusBadges.push({ type: 'success' as const, label: 'Saved', dot: true })
+	}
+
 	return (
 		<div className="flex flex-col h-full">
-			{/* Header */}
-			<header className="border-b bg-background/80 backdrop-blur-sm z-10 sticky top-0">
-				{/* Breadcrumbs */}
-				<div className="flex items-center justify-between px-6 py-3 border-b border-muted/50">
-					<nav className="flex items-center text-xs text-muted-foreground font-medium select-none">
-						<Link
-							to="/playground"
-							className="hover:text-foreground transition-colors"
-						>
-							Playground
-						</Link>
-						<span className="mx-2 text-muted-foreground/50">/</span>
-						<span className="text-foreground">
-							{state.schema.name || 'New Schema'}
-						</span>
-					</nav>
-
-					<div className="flex items-center gap-3">
-						{state.isDirty && (
-							<span className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200">
-								<div className="w-1 h-1 rounded-full bg-amber-500" />
-								Unsaved changes
-							</span>
-						)}
-						{state.lastSaved && (
-							<span className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium text-muted-foreground bg-muted border">
-								<div className="w-1 h-1 rounded-full bg-emerald-500" />
-								Saved
-							</span>
-						)}
-					</div>
-				</div>
-
-				{/* Title & Actions */}
-				<div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 gap-4">
-					<div className="flex items-center gap-4">
-						<div className="flex items-center gap-3">
-							<div className="p-2 bg-muted rounded-md border">
-								<Boxes className="h-5 w-5 text-muted-foreground" />
-							</div>
-							<div>
-								<Input
-									value={state.schema.name}
-									onChange={(e) => updateSchema({ name: e.target.value })}
-									placeholder="SchemaName"
-									className="text-lg font-semibold tracking-tight border-none shadow-none p-0 h-auto focus-visible:ring-0"
-								/>
-								<p className="text-xs text-muted-foreground font-mono">
-									api::{state.schema.name?.toLowerCase() || 'schema'}.
-									{state.schema.name?.toLowerCase() || 'schema'}
-								</p>
-							</div>
-						</div>
-
-						<Separator orientation="vertical" className="h-8" />
-
-						<ViewToggle value={state.viewMode} onChange={setViewMode} />
-					</div>
-
-					<div className="flex items-center gap-2">
+			<PageHeader
+				status={statusBadges.length > 0 ? statusBadges : undefined}
+				icon={Boxes}
+				title={{
+					value: state.schema.name,
+					onChange: (name) => updateSchema({ name }),
+					placeholder: 'SchemaName',
+					editable: true,
+				}}
+				description={`api::${state.schema.name?.toLowerCase() || 'schema'}.${state.schema.name?.toLowerCase() || 'schema'}`}
+				tabs={{
+					items: [
+						{ id: 'builder', label: 'Builder', icon: PencilRuler },
+						{ id: 'json', label: 'JSON', icon: FileJson },
+						{ id: 'code', label: 'Code', icon: Code2 },
+					],
+					value: state.viewMode,
+					onChange: setViewMode,
+				}}
+				actions={
+					<>
 						<Button
 							variant="outline"
 							size="icon"
@@ -231,16 +209,16 @@ function SchemaEditorInner() {
 							<Rocket className="h-4 w-4 mr-2" />
 							Deploy Changes
 						</Button>
-					</div>
-				</div>
-			</header>
+					</>
+				}
+			/>
 
 			{/* Main Content */}
 			<div className="flex-1 flex overflow-hidden">
 				{state.viewMode === 'builder' ? (
 					<>
 						{/* Builder View */}
-						<div className="flex-1 overflow-y-auto p-8 bg-muted/30">
+						<PageContent className="p-8">
 							<div className="max-w-3xl mx-auto space-y-6">
 								{/* Info Alert */}
 								<div className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-3">
@@ -255,7 +233,7 @@ function SchemaEditorInner() {
 								{/* Field List */}
 								<FieldList onAddField={() => setAddFieldOpen(true)} />
 							</div>
-						</div>
+						</PageContent>
 
 						{/* Settings Panel */}
 						<div className="w-80 border-l bg-background shrink-0">
@@ -264,11 +242,11 @@ function SchemaEditorInner() {
 					</>
 				) : (
 					/* Code/JSON View */
-					<div className="flex-1 p-8 bg-muted/30">
+					<PageContent className="p-8">
 						<div className="max-w-4xl mx-auto h-full">
 							<CodePreview mode={state.viewMode} />
 						</div>
-					</div>
+					</PageContent>
 				)}
 			</div>
 
