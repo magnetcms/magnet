@@ -25,9 +25,73 @@ export class CatsController {
 
 	@Get()
 	@Resolve(() => [Cat])
-	findAll(@Query('sort') sort: boolean): Promise<Cat[]> {
-		console.log(sort)
+	findAll(
+		@Query('breed') breed?: string,
+		@Query('ownerId') ownerId?: string,
+		@Query('minWeight') minWeight?: string,
+		@Query('maxWeight') maxWeight?: string,
+		@Query('castrated') castrated?: string,
+		@Query('search') search?: string,
+		@Query('page') page?: string,
+		@Query('limit') limit?: string,
+		@Query('sortBy') sortBy?: string,
+	): Promise<Cat[]> {
+		// Search functionality
+		if (search) {
+			return this.catsService.searchCats(search)
+		}
+
+		// Find by breed
+		if (breed) {
+			return this.catsService.findByBreed(breed)
+		}
+
+		// Find by owner
+		if (ownerId) {
+			return this.catsService.findCatsByOwner(ownerId)
+		}
+
+		// Advanced filtering with multiple criteria
+		const minWeightNum = minWeight ? Number.parseFloat(minWeight) : undefined
+		const maxWeightNum = maxWeight ? Number.parseFloat(maxWeight) : undefined
+		const castratedBool =
+			castrated === undefined ? undefined : castrated === 'true'
+
+		if (
+			minWeightNum !== undefined ||
+			maxWeightNum !== undefined ||
+			castratedBool !== undefined
+		) {
+			return this.catsService.findCatsByCriteria({
+				minWeight: minWeightNum,
+				maxWeight: maxWeightNum,
+				castrated: castratedBool,
+			})
+		}
+
+		// Pagination
+		if (page || limit) {
+			const pageNum = page ? Number.parseInt(page, 10) : 1
+			const limitNum = limit ? Number.parseInt(limit, 10) : 10
+			const sortByField = sortBy || 'tagID'
+			return this.catsService.findPaginated(pageNum, limitNum, sortByField)
+		}
+
+		// Default: return all
 		return this.catsService.findAll()
+	}
+
+	@Get('statistics')
+	@Resolve(() => Object)
+	getStatistics() {
+		return this.catsService.getCatsStatistics()
+	}
+
+	@Get('heavy/:threshold')
+	@Resolve(() => [Cat])
+	findHeavyCats(@Param('threshold') threshold: string): Promise<Cat[]> {
+		const thresholdNum = Number.parseFloat(threshold)
+		return this.catsService.findHeavyCats(thresholdNum)
 	}
 
 	@Get(':id')

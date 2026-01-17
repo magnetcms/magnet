@@ -19,13 +19,29 @@ export const useContentManager = () => {
 		}
 	}
 
-	const { data: schemaMetadata } = useSchema(schema as string)
+	// Normalize schema parameter: convert snake_case or other separators to kebab-case
+	// This handles URLs like /content-manager/medical_record or /content-manager/medical-record
+	const normalizedSchema =
+		schema
+			?.replace(/_/g, '-')
+			.replace(/([a-z])([A-Z])/g, '$1-$2')
+			.toLowerCase() || schema
 
-	if (!schemaMetadata) {
+	const { data: schemaMetadata } = useSchema(normalizedSchema as string)
+
+	if (!schemaMetadata || 'error' in schemaMetadata) {
 		return null
 	}
 
-	const name = names(String(schema))
+	// Type guard: schemaMetadata is SchemaMetadata (not error object)
+	const metadata = schemaMetadata as SchemaMetadata
+
+	// Use apiName for routes (kebab-case) and displayName for display, or fallback to names() utility
+	const apiName = metadata.apiName || (schema as string)
+	const displayName = metadata.displayName
+	const name = displayName
+		? { ...names(apiName), title: displayName } // Override title with displayName if available
+		: names(apiName) // Use names utility to convert kebab-case to other formats
 
 	return {
 		name,

@@ -5,7 +5,6 @@ import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
-	Spinner,
 } from '@magnet-cms/ui/components'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
@@ -13,6 +12,7 @@ import { ChevronDown } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ContentHeader } from '~/components/ContentHeader'
+import { LoadingState } from '~/components/LoadingState'
 import { useAdapter } from '~/core/provider/MagnetProvider'
 import { useContentManager } from '~/hooks/useContentManager'
 
@@ -73,7 +73,7 @@ const ContentManagerViewerVersions = () => {
 	const adapter = useAdapter()
 
 	const contentManager = useContentManager()
-	if (!contentManager) return <Spinner />
+	if (!contentManager) return <LoadingState />
 
 	const { name } = contentManager
 
@@ -154,7 +154,7 @@ const ContentManagerViewerVersions = () => {
 		},
 	})
 
-	if (isLoadingVersions) return <Spinner />
+	if (isLoadingVersions) return <LoadingState message="Loading versions..." />
 
 	if (!versions)
 		return <div>No versions found for this {name.title.toLowerCase()}</div>

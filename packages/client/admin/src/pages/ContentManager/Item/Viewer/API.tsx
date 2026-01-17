@@ -5,7 +5,6 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-	Spinner,
 	Table,
 	TableBody,
 	TableCell,
@@ -34,7 +33,7 @@ const ContentManagerViewerAPI = () => {
 	const [copied, setCopied] = useState<Record<string, boolean>>({})
 
 	const contentManager = useContentManager()
-	if (!contentManager) return <Spinner />
+	if (!contentManager) return <LoadingState />
 
 	const { name, schemaMetadata } = contentManager
 

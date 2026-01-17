@@ -10,6 +10,7 @@ import type {
 	UpdateDocumentOptions,
 } from '~/modules/document/document.types'
 import { HistoryService } from '~/modules/history/history.service'
+import { DiscoveryService } from '../discovery/discovery.service'
 
 @Injectable()
 export class ContentService {
@@ -17,24 +18,102 @@ export class ContentService {
 		private readonly moduleRef: ModuleRef,
 		private readonly documentService: DocumentService,
 		private readonly historyService: HistoryService,
+		private readonly discoveryService: DiscoveryService,
 	) {}
 
 	/**
-	 * Get a model by schema name
+	 * Convert schema name (kebab-case or lowercase) to PascalCase
+	 * Examples: "medical-record" -> "MedicalRecord", "medicalrecord" -> "MedicalRecord"
+	 */
+	private toPascalCase(name: string): string {
+		// Handle kebab-case (e.g., "medical-record")
+		if (name.includes('-')) {
+			return name
+				.split('-')
+				.map(
+					(word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+				)
+				.join('')
+		}
+		// Handle lowercase (e.g., "medicalrecord")
+		// For lowercase without separators, we need to infer word boundaries
+		// Common patterns: "medicalrecord" should be "MedicalRecord"
+		// Try to detect common word boundaries
+		const commonWords = ['record', 'medical', 'owner', 'cat', 'veterinarian']
+		const lower = name.toLowerCase()
+
+		for (const word of commonWords) {
+			if (lower.endsWith(word) && lower.length > word.length) {
+				const prefix = lower.slice(0, -word.length)
+				return (
+					prefix.charAt(0).toUpperCase() +
+					prefix.slice(1) +
+					word.charAt(0).toUpperCase() +
+					word.slice(1)
+				)
+			}
+		}
+
+		// Fallback: capitalize first letter (existing behavior)
+		return name.charAt(0).toUpperCase() + name.slice(1)
+	}
+
+	/**
+	 * Get a model by schema name, trying multiple token patterns
 	 */
 	private getModel<T>(schemaName: string): Model<T> {
-		// Capitalize first letter for token lookup
-		const capitalizedName =
-			schemaName.charAt(0).toUpperCase() + schemaName.slice(1)
-		const token = `Magnet${capitalizedName}Model`
+		// Normalize input: convert snake_case or any separators to kebab-case
+		const normalizedName = schemaName
+			.replace(/_/g, '-')
+			.replace(/([a-z])([A-Z])/g, '$1-$2')
+			.toLowerCase()
 
-		try {
-			return this.moduleRef.get<Model<T>>(token, { strict: false })
-		} catch {
-			throw new Error(
-				`Model '${schemaName}' not found. Make sure it's registered.`,
-			)
+		// First, try to get the actual class name from discovery service
+		const discoveredSchemas = this.discoveryService.getAllDiscoveredSchemas()
+		const found = discoveredSchemas.find(
+			(s) =>
+				s.apiName?.toLowerCase() === normalizedName ||
+				s.name.toLowerCase() === normalizedName ||
+				s.name.toLowerCase() === schemaName.toLowerCase(),
+		)
+
+		// If found, use the original class name from metadata
+		if (found?.className) {
+			const token = `Magnet${found.className}Model`
+			try {
+				return this.moduleRef.get<Model<T>>(token, { strict: false })
+			} catch {
+				// Fall through to try other patterns
+			}
 		}
+
+		// Fallback: Try multiple token patterns
+		const patterns = [
+			// Pattern 1: Direct PascalCase conversion
+			this.toPascalCase(normalizedName),
+			// Pattern 2: Kebab-case to PascalCase
+			normalizedName.includes('-')
+				? normalizedName
+						.split('-')
+						.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+						.join('')
+				: null,
+		].filter(Boolean) as string[]
+
+		// Try each pattern
+		for (const pattern of patterns) {
+			const token = `Magnet${pattern}Model`
+			try {
+				return this.moduleRef.get<Model<T>>(token, { strict: false })
+			} catch {
+				// Continue to next pattern
+			}
+		}
+
+		// If all patterns fail, throw error
+		throw new Error(
+			`Model '${schemaName}' not found. Make sure it's registered.`,
+		)
 	}
 
 	/**

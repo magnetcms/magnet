@@ -32,7 +32,7 @@ export class DiscoveryService implements OnModuleInit {
 	getDiscoveredSchemas(): string[] {
 		return this.schemas
 			.filter((schema) => !EXCLUDED_SCHEMAS.includes(schema.name.toLowerCase()))
-			.map((schema) => schema.name)
+			.map((schema) => schema.apiName || schema.name) // Use apiName (kebab-case) for routes, fallback to name
 	}
 
 	getAllDiscoveredSchemas(): SchemaMetadata[] {
@@ -42,11 +42,25 @@ export class DiscoveryService implements OnModuleInit {
 	}
 
 	getDiscoveredSchema(name: string): SchemaMetadata | { error: string } {
-		return (
-			this.schemas.find((schema) => schema.name === name) || {
-				error: 'Schema not found',
-			}
-		)
+		// Normalize input: convert snake_case or any separators to kebab-case
+		const normalizedName = name
+			.replace(/_/g, '-')
+			.replace(/([a-z])([A-Z])/g, '$1-$2')
+			.toLowerCase()
+
+		// Try to find by apiName (kebab-case) first, then by name (case-insensitive)
+		const found =
+			this.schemas.find(
+				(schema) =>
+					schema.apiName?.toLowerCase() === normalizedName ||
+					schema.name.toLowerCase() === normalizedName ||
+					schema.name.toLowerCase() === name.toLowerCase(),
+			) ||
+			this.schemas.find(
+				(schema) => schema.className?.toLowerCase() === name.toLowerCase(),
+			)
+
+		return found || { error: 'Schema not found' }
 	}
 
 	getDiscoveredSettingsSchemas(): string[] {

@@ -21,25 +21,49 @@ export class SchemaDiscoveryService {
 				(wrapper) => wrapper.metatype && typeof wrapper.metatype === 'function',
 			)
 
-		const schemas = allSchemas
+		// Deduplicate schemas by className (original class name)
+		const schemasMap = new Map<string, SchemaMetadata>()
+
+		allSchemas
 			.filter(
 				(wrapper) =>
 					wrapper.metatype &&
 					Reflect.getMetadata(SCHEMA_METADATA_KEY, wrapper.metatype) !==
 						undefined,
 			)
-			.map((wrapper) => this.metadataExtractor.extractSchemaMetadata(wrapper))
-			.filter((schema) => schema !== null) as SchemaMetadata[]
+			.forEach((wrapper) => {
+				const schema = this.metadataExtractor.extractSchemaMetadata(wrapper)
+				if (schema?.className) {
+					// Use className as the key to deduplicate
+					// If a schema with the same className already exists, keep the first one
+					if (!schemasMap.has(schema.className)) {
+						schemasMap.set(schema.className, schema)
+					}
+				}
+			})
 
-		const settingsSchemas = allSchemas
+		const schemas = Array.from(schemasMap.values())
+
+		// Deduplicate settings schemas by className
+		const settingsMap = new Map<string, SchemaMetadata>()
+
+		allSchemas
 			.filter(
 				(wrapper) =>
 					wrapper.metatype &&
 					Reflect.getMetadata(SETTING_METADATA_KEY, wrapper.metatype) !==
 						undefined,
 			)
-			.map((wrapper) => this.metadataExtractor.extractSchemaMetadata(wrapper))
-			.filter((schema) => schema !== null) as SchemaMetadata[]
+			.forEach((wrapper) => {
+				const schema = this.metadataExtractor.extractSchemaMetadata(wrapper)
+				if (schema?.className) {
+					if (!settingsMap.has(schema.className)) {
+						settingsMap.set(schema.className, schema)
+					}
+				}
+			})
+
+		const settingsSchemas = Array.from(settingsMap.values())
 
 		return { schemas, settings: settingsSchemas }
 	}

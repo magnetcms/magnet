@@ -1,10 +1,11 @@
 import { Type } from 'class-transformer'
 import {
+	IsArray,
 	IsBoolean,
 	IsDate,
 	IsNotEmpty,
 	IsNumber,
-	IsPhoneNumber,
+	IsOptional,
 	IsString,
 	Length,
 	Max,
@@ -14,8 +15,8 @@ import {
 export class CreateCatDto {
 	@IsString()
 	@Length(2, 20)
-	@IsNotEmpty()
-	tagID: string
+	@IsOptional()
+	tagID?: string
 
 	@IsString()
 	@Length(2, 255)
@@ -28,9 +29,13 @@ export class CreateCatDto {
 	birthdate: Date
 
 	@IsString()
-	@Length(2, 20)
+	@Length(2, 50)
 	@IsNotEmpty()
 	breed: string
+
+	@IsString()
+	@IsOptional()
+	description?: string
 
 	@IsNumber()
 	@Min(0.5)
@@ -38,14 +43,26 @@ export class CreateCatDto {
 	@IsNotEmpty()
 	weight: number
 
+	// Owner relation (ObjectId reference)
 	@IsString()
-	@Length(3, 255)
 	@IsNotEmpty()
 	owner: string
 
-	@IsPhoneNumber(null)
-	@IsNotEmpty()
-	ownerPhone: string
+	// Veterinarians relation (array of ObjectId references)
+	@IsArray()
+	@IsString({ each: true })
+	@IsOptional()
+	veterinarians?: string[]
+
+	// Media relations
+	@IsString()
+	@IsOptional()
+	photo?: string
+
+	@IsArray()
+	@IsString({ each: true })
+	@IsOptional()
+	photos?: string[]
 
 	@IsBoolean()
 	@IsNotEmpty()

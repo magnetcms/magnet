@@ -15,7 +15,7 @@ export type ResolveOptions = {
 export type ResolveInput = (() => Type | [Type]) | ResolveOptions
 
 export type PropOptions = {
-	type?: Type | [Type]
+	type?: Type | [Type] | any
 	description?: string
 	required?: boolean
 	unique?: boolean
@@ -24,6 +24,7 @@ export type PropOptions = {
 	intl?: boolean
 	hidden?: boolean
 	readonly?: boolean
+	ref?: string
 }
 
 export type BaseSchemaOptions = {

@@ -1,11 +1,12 @@
 import { SchemaMetadata } from '@magnet-cms/common'
-import { Spinner } from '@magnet-cms/ui/components'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ContentHeader } from '~/components/ContentHeader'
+import { ErrorState } from '~/components/ErrorState'
 import { FormBuilder } from '~/components/FormBuilder'
+import { LoadingState } from '~/components/LoadingState'
 import type { LocaleOption } from '~/components/LocaleSwitcher'
 import type { ContentData, LocaleStatus } from '~/core/adapters/types'
 import { useAdapter } from '~/core/provider/MagnetProvider'
@@ -21,21 +22,22 @@ const ContentManagerViewerEdit = () => {
 	// State for locale
 	const [currentLocale, setCurrentLocale] = useState('en')
 
-	// Get schema metadata and name information
+	// Get schema metadata and name information - use safe defaults
 	const contentManager = useContentManager()
-	if (!contentManager) return <Spinner />
-
-	const { name, schemaMetadata } = contentManager
+	const name = contentManager?.name
+	const schemaMetadata = contentManager?.schemaMetadata
 	const schemaOptions =
-		'options' in schemaMetadata ? schemaMetadata.options : undefined
+		schemaMetadata && 'options' in schemaMetadata
+			? schemaMetadata.options
+			: undefined
 	const hasI18n = schemaOptions?.i18n !== false
 	const hasVersioning = schemaOptions?.versioning !== false
 
-	// Fetch available locales from settings
+	// Fetch available locales from settings - only enabled if we have valid schema and i18n
 	const { data: localesConfig } = useQuery({
 		queryKey: ['settings', 'locales'],
 		queryFn: () => adapter.settings.getLocales(),
-		enabled: hasI18n,
+		enabled: hasI18n && !!schemaMetadata,
 	})
 
 	// Convert configured locales to LocaleOption format
@@ -51,8 +53,8 @@ const ContentManagerViewerEdit = () => {
 	const { data: localeStatuses } = useQuery({
 		queryKey: ['content', schemaName, documentId, 'locales'],
 		queryFn: () =>
-			adapter.content.getLocaleStatuses(name.key, documentId as string),
-		enabled: !!documentId && hasI18n,
+			adapter.content.getLocaleStatuses(name?.key || '', documentId as string),
+		enabled: !!documentId && hasI18n && !!name?.key,
 	})
 
 	// Get current locale status
@@ -74,8 +76,12 @@ const ContentManagerViewerEdit = () => {
 		return 'draft' // Default for new documents
 	})()
 
-	// Fetch item
-	const { data: item, isLoading: isLoadingItem } = useQuery({
+	// Fetch item - only enabled if we have valid schema and documentId
+	const {
+		data: item,
+		isLoading: isLoadingItem,
+		error: itemError,
+	} = useQuery({
 		queryKey: [
 			'content',
 			schemaName,
@@ -84,71 +90,97 @@ const ContentManagerViewerEdit = () => {
 			hasVersioning ? effectiveStatus : undefined,
 		],
 		queryFn: () =>
-			adapter.content.get<ContentData>(name.key, documentId as string, {
+			adapter.content.get<ContentData>(name?.key || '', documentId as string, {
 				...(hasI18n && { locale: currentLocale }),
 				...(hasVersioning && { status: effectiveStatus }),
 			}),
-		enabled: !!documentId,
+		enabled: !!documentId && !!name?.key,
 	})
 
-	// Auto-save hook
+	// Auto-save hook - must be defined before early returns
 	const autoSave = useAutoSave({
 		documentId: documentId as string,
-		schema: name.key,
+		schema: name?.key || '',
 		locale: hasI18n ? currentLocale : undefined,
-		enabled: !!documentId,
+		enabled: !!documentId && !!name?.key,
 		onSuccess: () => {
 			// Invalidate locale statuses to update the status badge
-			queryClient.invalidateQueries({
-				queryKey: ['content', schemaName, documentId, 'locales'],
-			})
+			if (schemaName && documentId) {
+				queryClient.invalidateQueries({
+					queryKey: ['content', schemaName, documentId, 'locales'],
+				})
+			}
 		},
 	})
 
-	// Publish mutation (only used if versioning is enabled)
+	// Publish mutation (only used if versioning is enabled) - must be defined before early returns
 	const publishMutation = useMutation({
 		mutationFn: () =>
-			adapter.content.publish(name.key, documentId as string, {
+			adapter.content.publish(name?.key || '', documentId as string, {
 				...(hasI18n && { locale: currentLocale }),
 			}),
 		onSuccess: () => {
-			toast.success('Content published', {
-				description: `${name.title} (${currentLocale}) was published successfully`,
-			})
-			queryClient.invalidateQueries({
-				queryKey: ['content', schemaName, documentId],
-			})
+			if (name) {
+				toast.success('Content published', {
+					description: `${name.title} (${currentLocale}) was published successfully`,
+				})
+			}
+			// Invalidate both the item query and the list query
+			if (schemaName && documentId) {
+				queryClient.invalidateQueries({
+					queryKey: ['content', schemaName, documentId],
+				})
+			}
+			if (name?.key) {
+				queryClient.invalidateQueries({
+					queryKey: ['content', 'list', name.key],
+				})
+			}
 		},
 		onError: (error) => {
 			toast.error(`Failed to publish: ${error.message}`)
 		},
 	})
 
-	// Unpublish mutation
+	// Unpublish mutation - must be defined before early returns
 	const unpublishMutation = useMutation({
 		mutationFn: () =>
-			adapter.content.unpublish(name.key, documentId as string, currentLocale),
+			adapter.content.unpublish(
+				name?.key || '',
+				documentId as string,
+				currentLocale,
+			),
 		onSuccess: () => {
-			toast.success('Content unpublished', {
-				description: `${name.title} (${currentLocale}) was unpublished`,
-			})
-			queryClient.invalidateQueries({
-				queryKey: ['content', schemaName, documentId],
-			})
+			if (name) {
+				toast.success('Content unpublished', {
+					description: `${name.title} (${currentLocale}) was unpublished`,
+				})
+			}
+			// Invalidate both the item query and the list query
+			if (schemaName && documentId) {
+				queryClient.invalidateQueries({
+					queryKey: ['content', schemaName, documentId],
+				})
+			}
+			if (name?.key) {
+				queryClient.invalidateQueries({
+					queryKey: ['content', 'list', name.key],
+				})
+			}
 		},
 		onError: (error) => {
 			toast.error(`Failed to unpublish: ${error.message}`)
 		},
 	})
 
-	// Add locale mutation
+	// Add locale mutation - must be defined before early returns
 	const addLocaleMutation = useMutation({
 		mutationFn: ({
 			locale,
 			initialData,
 		}: { locale: string; initialData: ContentData }) =>
 			adapter.content.addLocale(
-				name.key,
+				name?.key || '',
 				documentId as string,
 				locale,
 				initialData,
@@ -157,9 +189,11 @@ const ContentManagerViewerEdit = () => {
 			toast.success('Locale added', {
 				description: `${locale} translation was created`,
 			})
-			queryClient.invalidateQueries({
-				queryKey: ['content', schemaName, documentId],
-			})
+			if (schemaName && documentId) {
+				queryClient.invalidateQueries({
+					queryKey: ['content', schemaName, documentId],
+				})
+			}
 			setCurrentLocale(locale)
 		},
 		onError: (error) => {
@@ -194,13 +228,43 @@ const ContentManagerViewerEdit = () => {
 	}
 
 	// Handle form value changes - trigger auto-save
-	const handleFormChange = (data: ContentData) => {
-		autoSave.save(data)
-	}
+	// Use useCallback to prevent recreating the function on every render
+	const handleFormChange = useCallback(
+		(data: ContentData) => {
+			autoSave.save(data)
+		},
+		[autoSave],
+	)
+
+	// Now safe to do early returns after all hooks are called
+	if (!contentManager) return <LoadingState />
 
 	// Loading state
 	if (isLoadingItem) {
-		return <Spinner />
+		return <LoadingState message={`Loading ${name?.title || 'content'}...`} />
+	}
+
+	// Error state
+	if (itemError) {
+		return (
+			<ErrorState
+				title={`Error loading ${name?.title || 'content'}`}
+				message={itemError.message || 'Failed to fetch data. Please try again.'}
+				onRetry={() => {
+					if (schemaName && documentId) {
+						queryClient.invalidateQueries({
+							queryKey: [
+								'content',
+								schemaName,
+								documentId,
+								hasI18n ? currentLocale : undefined,
+								hasVersioning ? effectiveStatus : undefined,
+							],
+						})
+					}
+				}}
+			/>
+		)
 	}
 
 	const isMutating = publishMutation.isPending || unpublishMutation.isPending
@@ -215,14 +279,11 @@ const ContentManagerViewerEdit = () => {
 		{ label: 'API', to: 'api' },
 	]
 
-	// More menu items (publish/unpublish actions)
+	// More menu items (unpublish and other actions)
 	const moreMenuItems = []
 	if (hasVersioning) {
-		// Always show publish option (edits create/update draft, which can be published)
-		moreMenuItems.push({
-			label: 'Publish',
-			onClick: () => publishMutation.mutate(),
-		})
+		// Only show unpublish in more menu if content is published
+		// Publish is shown as primary button outside the menu
 		if (currentLocaleStatus?.hasPublished) {
 			moreMenuItems.push({
 				label: 'Unpublish',
@@ -252,6 +313,8 @@ const ContentManagerViewerEdit = () => {
 				}
 				tabs={tabs}
 				onDiscard={() => navigate(`/content-manager/${name.key}`)}
+				onPublish={hasVersioning ? () => publishMutation.mutate() : undefined}
+				isPublishing={publishMutation.isPending}
 				autoSaveStatus={{
 					isSaving: autoSave.isSaving,
 					lastSaved: autoSave.lastSaved,

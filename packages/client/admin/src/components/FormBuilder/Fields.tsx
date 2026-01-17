@@ -24,6 +24,8 @@ import {
 } from '@magnet-cms/ui/components'
 import { capitalize } from '@magnet-cms/utils'
 import { ReactElement } from 'react'
+import { MediaUploadField } from './MediaUploadField'
+import { RelationshipField } from './RelationshipField'
 
 export const fieldRenderer: Record<
 	UITypes,
@@ -129,7 +131,7 @@ export const fieldRenderer: Record<
 			}))}
 		/>
 	),
-	relationship: (_prop) => <div>relationship</div>,
+	relationship: (prop) => <RelationshipField {...prop} />,
 	richText: (prop) => (
 		<RHFRichText
 			key={prop.name}
@@ -144,6 +146,10 @@ export const fieldRenderer: Record<
 			name={prop.name}
 			label={capitalize(prop.ui?.label || prop.name)}
 			description={prop.ui?.description}
+			placeholder={
+				prop.ui?.placeholder ||
+				`Enter ${capitalize(prop.ui?.label || prop.name).toLowerCase()}`
+			}
 		/>
 	),
 	textarea: (prop) => (
@@ -152,6 +158,10 @@ export const fieldRenderer: Record<
 			name={prop.name}
 			label={capitalize(prop.ui?.label || prop.name)}
 			description={prop.ui?.description}
+			placeholder={
+				prop.ui?.placeholder ||
+				`Enter ${capitalize(prop.ui?.label || prop.name).toLowerCase()}`
+			}
 		/>
 	),
 	select: (prop) => {
@@ -163,6 +173,10 @@ export const fieldRenderer: Record<
 					name={prop.name}
 					label={capitalize(ui.label || prop.name)}
 					description={ui.description}
+					placeholder={
+						ui.placeholder ||
+						`Select ${capitalize(ui.label || prop.name).toLowerCase()}`
+					}
 					options={ui.options.map((option) => ({
 						value: option.value,
 						label: option.key,
@@ -176,6 +190,10 @@ export const fieldRenderer: Record<
 				name={prop.name}
 				label={capitalize(ui.label || prop.name)}
 				description={ui.description}
+				placeholder={
+					ui.placeholder ||
+					`Select ${capitalize(ui.label || prop.name).toLowerCase()}`
+				}
 				options={ui.options.map((option) => ({
 					value: option.value,
 					label: option.key,
@@ -207,5 +225,5 @@ export const fieldRenderer: Record<
 			/>
 		)
 	},
-	upload: (_prop) => <div>upload</div>,
+	upload: (prop) => <MediaUploadField {...prop} />,
 }

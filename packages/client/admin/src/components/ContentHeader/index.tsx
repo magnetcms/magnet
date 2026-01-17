@@ -52,6 +52,10 @@ interface ContentHeaderProps {
 	onSave?: () => void
 	isSaving?: boolean
 	saveLabel?: string
+	// Publish action (optional - shown outside more menu as primary button)
+	onPublish?: () => void
+	isPublishing?: boolean
+	publishLabel?: string
 	// Auto-save status (optional - for Payload-style auto-save UI)
 	autoSaveStatus?: AutoSaveStatus
 	// Locale (optional)
@@ -70,6 +74,9 @@ export const ContentHeader = ({
 	onSave,
 	isSaving,
 	saveLabel = 'Save changes',
+	onPublish,
+	isPublishing,
+	publishLabel = 'Publish',
 	autoSaveStatus,
 	localeProps,
 	moreMenuItems,
@@ -327,6 +334,16 @@ export const ContentHeader = ({
 								className="text-muted-foreground hover:text-foreground"
 							>
 								Discard
+							</Button>
+						)}
+						{onPublish && (
+							<Button
+								size="sm"
+								onClick={onPublish}
+								disabled={isPublishing}
+								variant="default"
+							>
+								{isPublishing ? 'Publishing...' : publishLabel}
 							</Button>
 						)}
 						{onSave && (

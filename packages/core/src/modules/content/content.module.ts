@@ -1,11 +1,16 @@
 import { Module, forwardRef } from '@nestjs/common'
 import { DocumentModule } from '~/modules/document/document.module'
 import { HistoryModule } from '~/modules/history/history.module'
+import { DiscoveryModule } from '../discovery/discovery.module'
 import { ContentController } from './content.controller'
 import { ContentService } from './content.service'
 
 @Module({
-	imports: [forwardRef(() => DocumentModule), forwardRef(() => HistoryModule)],
+	imports: [
+		forwardRef(() => DocumentModule),
+		forwardRef(() => HistoryModule),
+		DiscoveryModule,
+	],
 	controllers: [ContentController],
 	providers: [ContentService],
 	exports: [ContentService],

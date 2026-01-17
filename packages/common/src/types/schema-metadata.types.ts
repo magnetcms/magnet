@@ -40,10 +40,14 @@ export type SchemaProperty = {
 	required: boolean
 	validations: SchemaPropertyValidation[]
 	ui: UIDecoratorOptions
+	ref?: string
 }
 
 export type SchemaMetadata = {
-	name: string
+	name: string // lowercase name for URL matching
+	className?: string // original class name (PascalCase) for token lookup
+	apiName?: string // kebab-case name for routes (e.g., "medical-record")
+	displayName?: string // title case name for display (e.g., "Medical Record")
 	properties: SchemaProperty[]
 	options?: SchemaOptions
 }

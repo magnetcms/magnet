@@ -121,8 +121,22 @@ export class MetadataExtractorService {
 			},
 		)
 
+		// Convert PascalCase className to kebab-case for routes (e.g., "MedicalRecord" -> "medical-record")
+		const kebabName = metatype.name
+			.replace(/([a-z])([A-Z])/g, '$1-$2')
+			.toLowerCase()
+
+		// Convert kebab-case to title case for display (e.g., "medical-record" -> "Medical Record")
+		const displayName = kebabName
+			.split('-')
+			.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+			.join(' ')
+
 		return {
 			name: metatype.name.toLowerCase() ?? 'unknownschema',
+			className: metatype.name, // Store original class name for token lookup
+			apiName: kebabName, // kebab-case for routes
+			displayName, // Title case for display
 			properties,
 			options: getSchemaOptions(metatype),
 		}

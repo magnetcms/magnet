@@ -13,6 +13,8 @@ export const buildFormSchema = (
 
 	const typeMappings: Record<string, () => ZodType<any>> = {
 		select: () => z.string(),
+		relationship: () => z.string(),
+		upload: () => z.string(),
 		date: () => z.date(),
 		checkbox: () => z.boolean(),
 		number: () => z.coerce.number(),
@@ -69,6 +71,16 @@ export const buildFormSchema = (
 
 			if (prop.ui?.type === 'select' && (prop.ui as UISelect).multi) {
 				field = z.array(z.string())
+			}
+
+			// Handle relationship fields - arrays are multi-select, single is select
+			if (prop.ui?.type === 'relationship') {
+				field = prop.isArray ? z.array(z.string()) : z.string()
+			}
+
+			// Handle upload fields - arrays are multiple uploads, single is one upload
+			if (prop.ui?.type === 'upload') {
+				field = prop.isArray ? z.array(z.string()) : z.string()
 			}
 
 			if (prop.validations) {

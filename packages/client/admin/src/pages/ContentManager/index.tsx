@@ -62,16 +62,18 @@ const ContentManager = () => {
 
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 				{schemas.map((schema) => {
+					// schema is now apiName (kebab-case) from the API
 					const name = names(schema)
+					const displayTitle = name.title // Convert kebab-case to Title Case
 					return (
 						<Card key={schema} className="overflow-hidden">
 							<CardHeader className="bg-muted/50">
 								<CardTitle className="flex items-center">
 									<Database className="mr-2 h-5 w-5" />
-									{name.title}
+									{displayTitle}
 								</CardTitle>
 								<CardDescription>
-									Manage your {name.title.toLowerCase()} content
+									Manage your {displayTitle.toLowerCase()} content
 								</CardDescription>
 							</CardHeader>
 							<CardContent className="pt-6">
@@ -93,14 +95,12 @@ const ContentManager = () => {
 							<CardFooter className="bg-muted/30 flex justify-between">
 								<Button
 									variant="ghost"
-									onClick={() => navigate(`/content-manager/${name.key}`)}
+									onClick={() => navigate(`/content-manager/${schema}`)}
 								>
 									Browse All
 								</Button>
 								<Button
-									onClick={() =>
-										navigate(`/content-manager/${name.key}/create`)
-									}
+									onClick={() => navigate(`/content-manager/${schema}/create`)}
 								>
 									Create New
 								</Button>
