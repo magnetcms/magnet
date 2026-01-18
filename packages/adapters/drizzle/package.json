@@ -37,8 +37,8 @@
     "reflect-metadata": "0.2.2"
   },
   "peerDependencies": {
-    "@magnet-cms/common": "workspace:*",
-    "@magnet-cms/utils": "workspace:*",
+    "@magnet-cms/common": "^0.1.0",
+    "@magnet-cms/utils": "^0.1.0",
     "@nestjs/common": "^11.1.12",
     "drizzle-orm": "^0.38.0",
     "reflect-metadata": "0.2.2"

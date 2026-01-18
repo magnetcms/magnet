@@ -50,8 +50,8 @@
     "sharp": "^0.33.5"
   },
   "peerDependencies": {
-    "@magnet-cms/common": "workspace:*",
-    "@magnet-cms/utils": "workspace:*",
+    "@magnet-cms/common": "^0.1.0",
+    "@magnet-cms/utils": "^0.1.0",
     "@nestjs/common": "^11.1.12",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.1.12",

@@ -62,11 +62,11 @@
     "vite": "^6.0.7"
   },
   "peerDependencies": {
-    "@magnet-cms/admin": "workspace:*",
-    "@magnet-cms/common": "workspace:*",
-    "@magnet-cms/core": "workspace:*",
-    "@magnet-cms/ui": "workspace:*",
-    "@magnet-cms/utils": "workspace:*",
+    "@magnet-cms/admin": "^0.1.0",
+    "@magnet-cms/common": "^0.1.0",
+    "@magnet-cms/core": "^1.0.0",
+    "@magnet-cms/ui": "^0.1.0",
+    "@magnet-cms/utils": "^0.1.0",
     "@nestjs/common": "^11.1.12",
     "lucide-react": ">=0.400.0",
     "react": ">=18.0.0",
