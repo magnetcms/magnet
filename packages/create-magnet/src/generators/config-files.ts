@@ -105,7 +105,7 @@ export function generateEnvExample(config: ProjectConfig): string {
 
 	const lines: string[] = [
 		'# Application',
-		'NODE_ENV=development',
+		'NODE_ENV=production',
 		'PORT=3000',
 		'',
 	]
@@ -253,11 +253,11 @@ ${dbSetupInstructions}
 ${runCmd} dev
 \`\`\`
 
-The API will be available at \`http://localhost:3000\`.
+The application will be available at \`http://localhost:3000\`.
 
 ### Admin UI
 
-The Magnet Admin UI runs at \`http://localhost:3001\` when started separately.
+The Magnet Admin UI is available at \`http://localhost:3000/admin\`.
 
 ## Scripts
 
