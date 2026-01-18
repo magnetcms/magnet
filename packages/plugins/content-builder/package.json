@@ -1,6 +1,6 @@
 {
   "name": "@magnet-cms/plugin-content-builder",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Visual schema builder and code generator for Magnet CMS",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -62,9 +62,9 @@
     "vite": "^6.0.7"
   },
   "peerDependencies": {
-    "@magnet-cms/admin": "^0.1.0",
+    "@magnet-cms/admin": "^0.1.2",
     "@magnet-cms/common": "^0.1.0",
-    "@magnet-cms/core": "^1.0.0",
+    "@magnet-cms/core": "^1.0.2",
     "@magnet-cms/ui": "^0.1.0",
     "@magnet-cms/utils": "^0.1.0",
     "@nestjs/common": "^11.1.12",
