@@ -1,6 +1,8 @@
 import { DatabaseAdapter, MagnetModuleOptions } from '@magnet-cms/common'
 import { DynamicModule, Injectable, Module, Type } from '@nestjs/common'
+import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
+import { getTableConfig } from 'drizzle-orm/pg-core'
 import { Pool } from 'pg'
 
 import { createNeonWebSocketConnection } from './dialects/neon'
@@ -40,9 +42,207 @@ class DrizzleAdapter extends DatabaseAdapter {
 	private pool: Pool | null = null
 	private options: MagnetModuleOptions | null = null
 	private schemaRegistry: Map<string, any> = new Map()
+	private tablesInitialized = false
 
 	constructor() {
 		super()
+	}
+
+	/**
+	 * Automatically create tables for all registered schemas.
+	 * Called lazily when first model is accessed, or can be called explicitly.
+	 */
+	async ensureTablesCreated(): Promise<void> {
+		if (this.tablesInitialized || !this.db || this.schemaRegistry.size === 0) {
+			return
+		}
+
+		// Small delay to allow all schemas to be registered
+		await new Promise((resolve) => setTimeout(resolve, 200))
+
+		await this.createTables()
+		this.tablesInitialized = true
+	}
+
+	/**
+	 * Create tables for all registered schemas in the database.
+	 * Uses Drizzle's getTableConfig to generate CREATE TABLE IF NOT EXISTS statements.
+	 */
+	private async createTables(): Promise<void> {
+		if (!this.db || this.schemaRegistry.size === 0) {
+			return
+		}
+
+		try {
+			for (const [schemaName, { table }] of this.schemaRegistry.entries()) {
+				const config = getTableConfig(table)
+				await this.createTableFromConfig(config)
+			}
+		} catch (error) {
+			// Log error but don't fail startup - tables might already exist
+			console.warn('Error creating tables automatically:', error)
+		}
+	}
+
+	/**
+	 * Generate and execute CREATE TABLE IF NOT EXISTS statement from table config.
+	 */
+	private async createTableFromConfig(config: any): Promise<void> {
+		if (!this.db) return
+
+		const tableName = config.name
+		const columns: string[] = []
+
+		// Generate column definitions
+		for (const [colName, col] of Object.entries(config.columns)) {
+			const colDef: string[] = [`"${colName}"`]
+			const column = col as any
+
+			// Get SQL type using getSQLType() method on the column builder
+			let sqlType: string
+			if (typeof column.getSQLType === 'function') {
+				sqlType = column.getSQLType()
+			} else {
+				// Fallback: try to infer from column properties
+				sqlType = this.inferSQLType(column) || 'TEXT'
+			}
+
+			colDef.push(sqlType)
+
+			// Add NOT NULL constraint
+			if (column.notNull) {
+				colDef.push('NOT NULL')
+			}
+
+			// Add DEFAULT constraint
+			if (column.default !== undefined) {
+				const defaultValue = column.default
+				const defaultSQL = this.formatDefaultValue(defaultValue)
+				if (defaultSQL) {
+					colDef.push(`DEFAULT ${defaultSQL}`)
+				}
+			}
+
+			columns.push(colDef.join(' '))
+		}
+
+		// Add primary key constraint (composite keys handled separately from column-level)
+		if (config.primaryKeys && config.primaryKeys.length > 0) {
+			const pkColumns = config.primaryKeys
+				.map((pk: string) => `"${pk}"`)
+				.join(', ')
+			columns.push(`PRIMARY KEY (${pkColumns})`)
+		}
+
+		// Generate and execute CREATE TABLE IF NOT EXISTS
+		const createTableSQL = sql.raw(`
+			CREATE TABLE IF NOT EXISTS "${tableName}" (
+				${columns.join(',\n				')}
+			)
+		`)
+
+		await (this.db as any).execute(createTableSQL)
+
+		// Create indexes separately (they might already exist)
+		if (config.indexes) {
+			for (const index of Object.values(config.indexes)) {
+				const indexConfig = index as any
+				const indexName =
+					indexConfig.name ||
+					`${tableName}_${Math.random().toString(36).slice(2)}_idx`
+
+				// Get column names from index - could be array or object with .columns property
+				let indexColumns: string[] = []
+				if (Array.isArray(indexConfig.columns)) {
+					indexColumns = indexConfig.columns
+				} else if (indexConfig.columns) {
+					indexColumns = Object.keys(indexConfig.columns)
+				}
+
+				if (indexColumns.length > 0) {
+					const uniqueKeyword = indexConfig.unique ? 'UNIQUE' : ''
+					const columnsStr = indexColumns
+						.map((col: string) => `"${col}"`)
+						.join(', ')
+					const createIndexSQL = sql.raw(`
+						CREATE ${uniqueKeyword} INDEX IF NOT EXISTS "${indexName}"
+						ON "${tableName}" (${columnsStr})
+					`)
+					await (this.db as any).execute(createIndexSQL).catch(() => {
+						// Index might already exist, ignore error
+					})
+				}
+			}
+		}
+	}
+
+	/**
+	 * Infer SQL type from column definition when getSQLType() is not available.
+	 */
+	private inferSQLType(column: any): string | null {
+		// Try to infer from column builder type or properties
+		const columnStr = String(column)
+		if (columnStr.includes('uuid')) return 'UUID'
+		if (columnStr.includes('timestamp')) return 'TIMESTAMP'
+		if (columnStr.includes('double') || columnStr.includes('numeric'))
+			return 'DOUBLE PRECISION'
+		if (columnStr.includes('boolean')) return 'BOOLEAN'
+		if (columnStr.includes('jsonb') || columnStr.includes('json'))
+			return 'JSONB'
+		if (columnStr.includes('integer') || columnStr.includes('int'))
+			return 'INTEGER'
+		return null
+	}
+
+	/**
+	 * Format default value for SQL DEFAULT clause.
+	 */
+	private formatDefaultValue(value: unknown): string | null {
+		if (value === undefined || value === null) {
+			return null
+		}
+
+		// Handle SQL template literal objects (from sql`...`)
+		if (typeof value === 'object' && value !== null && 'sql' in value) {
+			const sqlObj = value as { sql: string; params?: unknown[] }
+			// Extract SQL from the template literal object
+			// Drizzle stores SQL as string in the sql property
+			return sqlObj.sql
+		}
+
+		// Handle functions (like gen_random_uuid, now)
+		if (typeof value === 'function') {
+			const funcStr = value.toString()
+			if (funcStr.includes('gen_random_uuid')) {
+				return 'gen_random_uuid()'
+			}
+			if (funcStr.includes('now') || funcStr.includes('CURRENT_TIMESTAMP')) {
+				return 'NOW()'
+			}
+			return null
+		}
+
+		// Handle arrays (JSONB default)
+		if (Array.isArray(value)) {
+			return `'${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`
+		}
+
+		// Handle objects (JSONB default)
+		if (typeof value === 'object') {
+			return `'${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`
+		}
+
+		// Handle strings
+		if (typeof value === 'string') {
+			return `'${value.replace(/'/g, "''")}'`
+		}
+
+		// Handle numbers and booleans
+		if (typeof value === 'number' || typeof value === 'boolean') {
+			return String(value)
+		}
+
+		return null
 	}
 
 	/**
@@ -117,12 +317,15 @@ class DrizzleAdapter extends DatabaseAdapter {
 
 			return {
 				provide: token,
-				useFactory: () => {
+				useFactory: async () => {
 					if (!this.db) {
 						throw new Error(
 							'Drizzle database not initialized. Call connect() first.',
 						)
 					}
+					// Ensure tables are created before returning model data
+					// This is called lazily when models are first accessed
+					await this.ensureTablesCreated()
 					// Return raw model data - model() will wrap it into a class
 					return { db: this.db, table, schemaClass }
 				},

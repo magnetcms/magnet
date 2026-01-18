@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { InitialConfig } from '@magnet-cms/common'
+import { findPathInParentDirectories } from '@magnet-cms/utils/node'
 import { Injectable, Logger } from '@nestjs/common'
 import type { NextFunction, Request, Response } from 'express'
 import { createProxyMiddleware } from 'http-proxy-middleware'
@@ -36,25 +37,37 @@ export class AdminService {
 	 * Priority: Custom build > Default package
 	 */
 	private findAdminDistPath(): string {
-		const possiblePaths = [
-			// Custom build output (highest priority - allows plugin customization)
+		// Custom build output (highest priority - allows plugin customization)
+		const customPaths = [
 			resolve(process.cwd(), 'dist/admin'),
 			resolve(process.cwd(), 'public/admin'),
-			// Monorepo development
-			resolve(process.cwd(), '../../packages/client/admin/dist/client'),
-			resolve(process.cwd(), '../packages/client/admin/dist/client'),
-			// Installed as dependency (fallback)
-			resolve(process.cwd(), 'node_modules/@magnet-cms/admin/dist/client'),
 		]
 
-		for (const path of possiblePaths) {
+		for (const path of customPaths) {
 			if (existsSync(path)) {
 				return path
 			}
 		}
 
+		// Search for monorepo development paths up to 5 levels
+		const monorepoPath = findPathInParentDirectories(
+			'packages/client/admin/dist/client',
+		)
+		if (monorepoPath) {
+			return monorepoPath
+		}
+
+		// Installed as dependency (fallback)
+		const nodeModulesPath = resolve(
+			process.cwd(),
+			'node_modules/@magnet-cms/admin/dist/client',
+		)
+		if (existsSync(nodeModulesPath)) {
+			return nodeModulesPath
+		}
+
 		// Default fallback
-		return resolve(process.cwd(), 'node_modules/@magnet-cms/admin/dist/client')
+		return nodeModulesPath
 	}
 
 	/**

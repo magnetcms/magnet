@@ -1,10 +1,25 @@
 import type { APIRequestContext } from '@playwright/test'
 
-export interface Cat {
-	id: string
+export interface Owner {
+	id?: string
+	_id?: string
 	name: string
-	age: number
+	email: string
+	phone: string
+	address?: string
+}
+
+export interface Cat {
+	id?: string
+	_id?: string
+	tagID: string
+	name: string
+	birthdate: Date | string
 	breed: string
+	weight: number
+	owner: string
+	castrated: boolean
+	description?: string
 }
 
 export interface MediaItem {
@@ -124,8 +139,65 @@ export class ApiClient {
 		})
 	}
 
+	async logout() {
+		// Logout is typically handled client-side by clearing tokens
+		// If there's a backend logout endpoint, it would be here
+		// For now, we'll just clear the token
+		this.token = undefined
+	}
+
+	async updateProfile(data: { name?: string; email?: string }) {
+		return this.request.put(`${this.baseURL}/auth/account/profile`, {
+			headers: this.getHeaders(),
+			data,
+		})
+	}
+
+	async changePassword(data: {
+		currentPassword: string
+		newPassword: string
+	}) {
+		return this.request.put(`${this.baseURL}/auth/account/password`, {
+			headers: this.getHeaders(),
+			data,
+		})
+	}
+
+	// Owners CRUD endpoints
+	async createOwner(data: Partial<Owner>) {
+		return this.request.post(`${this.baseURL}/owners`, {
+			headers: this.getHeaders(),
+			data,
+		})
+	}
+
+	async getOwners() {
+		return this.request.get(`${this.baseURL}/owners`, {
+			headers: this.getHeaders(),
+		})
+	}
+
+	async getOwner(id: string) {
+		return this.request.get(`${this.baseURL}/owners/${id}`, {
+			headers: this.getHeaders(),
+		})
+	}
+
+	async updateOwner(id: string, data: Partial<Owner>) {
+		return this.request.put(`${this.baseURL}/owners/${id}`, {
+			headers: this.getHeaders(),
+			data,
+		})
+	}
+
+	async deleteOwner(id: string) {
+		return this.request.delete(`${this.baseURL}/owners/${id}`, {
+			headers: this.getHeaders(),
+		})
+	}
+
 	// Cats CRUD endpoints
-	async createCat(data: Omit<Cat, 'id'>) {
+	async createCat(data: Partial<Cat>) {
 		return this.request.post(`${this.baseURL}/cats`, {
 			headers: this.getHeaders(),
 			data,
@@ -266,5 +338,110 @@ export class ApiClient {
 		const url = `${this.baseURL}/media/file/${id}${queryString ? `?${queryString}` : ''}`
 
 		return this.request.get(url)
+	}
+
+	// Settings endpoints
+	async getSettings(group: string) {
+		return this.request.get(`${this.baseURL}/settings/${group}`, {
+			headers: this.getHeaders(),
+		})
+	}
+
+	async updateSettings(group: string, data: Record<string, unknown>) {
+		return this.request.put(`${this.baseURL}/settings/${group}`, {
+			headers: this.getHeaders(),
+			data,
+		})
+	}
+
+	// Content CRUD endpoints
+	async listContent(
+		schema: string,
+		options?: { locale?: string; status?: string },
+	) {
+		const params = new URLSearchParams()
+		if (options?.locale) params.set('locale', options.locale)
+		if (options?.status) params.set('status', options.status)
+
+		const queryString = params.toString()
+		const url = `${this.baseURL}/content/${schema}${queryString ? `?${queryString}` : ''}`
+
+		return this.request.get(url, {
+			headers: this.getHeaders(),
+		})
+	}
+
+	async getContent(
+		schema: string,
+		documentId: string,
+		options?: { locale?: string },
+	) {
+		const params = new URLSearchParams()
+		if (options?.locale) params.set('locale', options.locale)
+
+		const queryString = params.toString()
+		const url = `${this.baseURL}/content/${schema}/${documentId}${queryString ? `?${queryString}` : ''}`
+
+		return this.request.get(url, {
+			headers: this.getHeaders(),
+		})
+	}
+
+	async createContent(
+		schema: string,
+		data: Record<string, unknown>,
+		options?: { locale?: string; createdBy?: string },
+	) {
+		return this.request.post(`${this.baseURL}/content/${schema}`, {
+			headers: this.getHeaders(),
+			data: {
+				data,
+				locale: options?.locale,
+				createdBy: options?.createdBy,
+			},
+		})
+	}
+
+	async createEmptyContent(
+		schema: string,
+		options?: { locale?: string; createdBy?: string },
+	) {
+		return this.request.post(`${this.baseURL}/content/${schema}/empty`, {
+			headers: this.getHeaders(),
+			data: {
+				locale: options?.locale,
+				createdBy: options?.createdBy,
+			},
+		})
+	}
+
+	async updateContent(
+		schema: string,
+		documentId: string,
+		data: Record<string, unknown>,
+		options?: { locale?: string; updatedBy?: string },
+	) {
+		const params = new URLSearchParams()
+		if (options?.locale) params.set('locale', options.locale)
+
+		const queryString = params.toString()
+		const url = `${this.baseURL}/content/${schema}/${documentId}${queryString ? `?${queryString}` : ''}`
+
+		return this.request.put(url, {
+			headers: this.getHeaders(),
+			data: {
+				data,
+				updatedBy: options?.updatedBy,
+			},
+		})
+	}
+
+	async deleteContent(schema: string, documentId: string) {
+		return this.request.delete(
+			`${this.baseURL}/content/${schema}/${documentId}`,
+			{
+				headers: this.getHeaders(),
+			},
+		)
 	}
 }

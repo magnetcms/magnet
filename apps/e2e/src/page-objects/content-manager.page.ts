@@ -19,7 +19,7 @@ export class ContentManagerPage {
 	}
 
 	async goto() {
-		await this.page.goto('/content-manager')
+		await this.page.goto('content-manager')
 	}
 
 	async gotoSchema(schemaName: string) {
@@ -51,5 +51,57 @@ export class ContentManagerPage {
 	async searchItems(query: string) {
 		await this.searchInput.fill(query)
 		await this.page.waitForTimeout(300)
+	}
+
+	async createItem() {
+		await this.createButton.click()
+		// Wait for navigation to create/edit page
+		await this.page.waitForURL(/create|edit/, { timeout: 5000 })
+	}
+
+	async editItem(itemId: string) {
+		// Click on item row or edit button
+		await this.page
+			.getByRole('row')
+			.filter({ hasText: itemId })
+			.getByRole('button', { name: /edit/i })
+			.or(this.page.getByRole('link', { name: new RegExp(itemId, 'i') }))
+			.first()
+			.click()
+		await this.page.waitForURL(/edit|view/, { timeout: 5000 })
+	}
+
+	async deleteItem(itemId: string) {
+		// Find delete button for the item
+		const row = this.page.getByRole('row').filter({ hasText: itemId })
+		await row.getByRole('button', { name: /delete/i }).click()
+		// Confirm deletion if dialog appears
+		const confirmButton = this.page.getByRole('button', {
+			name: /confirm|delete|yes/i,
+		})
+		if (await confirmButton.isVisible()) {
+			await confirmButton.click()
+		}
+	}
+
+	async filterItems(filterType: string, value: string) {
+		// Generic filter method - may need adjustment based on actual UI
+		const filterInput = this.page
+			.getByLabel(filterType)
+			.or(this.page.locator(`[data-testid="${filterType}-filter"]`))
+		await filterInput.fill(value)
+		await this.page.waitForTimeout(300)
+	}
+
+	async expectItemInList(itemName: string) {
+		await expect(this.page.getByText(itemName)).toBeVisible()
+	}
+
+	async expectItemNotInList(itemName: string) {
+		await expect(this.page.getByText(itemName)).not.toBeVisible()
+	}
+
+	async getItemCount(): Promise<number> {
+		return this.table.getByRole('row').count()
 	}
 }

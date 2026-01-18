@@ -5,21 +5,24 @@ export class LoginPage {
 	readonly page: Page
 	readonly emailInput: Locator
 	readonly passwordInput: Locator
+	readonly verifyPasswordInput: Locator
 	readonly submitButton: Locator
 	readonly errorMessage: Locator
 
 	constructor(page: Page) {
 		this.page = page
 		this.emailInput = page.getByLabel(/email/i)
-		this.passwordInput = page.getByLabel(/password/i)
+		// Use exact match to avoid matching "Verify Password"
+		this.passwordInput = page.getByLabel('Password', { exact: true })
+		this.verifyPasswordInput = page.getByLabel(/verify password/i)
 		this.submitButton = page.getByRole('button', {
-			name: /sign in|create account|submit|login/i,
+			name: /sign in|create account|submit|login|setup/i,
 		})
 		this.errorMessage = page.getByRole('alert')
 	}
 
 	async goto() {
-		await this.page.goto('/auth')
+		await this.page.goto('/admin/auth')
 	}
 
 	async login(email: string, password: string) {
@@ -31,6 +34,10 @@ export class LoginPage {
 	async setup(email: string, password: string) {
 		await this.emailInput.fill(email)
 		await this.passwordInput.fill(password)
+		// Setup form has verify password field
+		if (await this.verifyPasswordInput.isVisible()) {
+			await this.verifyPasswordInput.fill(password)
+		}
 		await this.submitButton.click()
 	}
 

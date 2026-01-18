@@ -73,7 +73,6 @@ export const RHFText = ({
 										</span>
 									)}
 									<Input
-										id={field.name}
 										type={type}
 										placeholder={placeholder}
 										disabled={disabled}
@@ -114,7 +113,6 @@ export const RHFText = ({
 								</div>
 							) : (
 								<Input
-									id={field.name}
 									type={type}
 									placeholder={placeholder}
 									disabled={disabled}

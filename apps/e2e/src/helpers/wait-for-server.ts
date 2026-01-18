@@ -42,9 +42,17 @@ export async function waitForServers(): Promise<void> {
 	const apiUrl = process.env.API_BASE_URL || 'http://localhost:3000'
 	const uiUrl = process.env.UI_BASE_URL || 'http://localhost:3001'
 
-	// Short timeout - servers should already be running
+	// Use longer timeout if TEMPLATE_NAME is set (automated testing)
+	const isAutomated = !!process.env.TEMPLATE_NAME
+	const apiTimeout = isAutomated ? 60_000 : 10_000
+	const uiTimeout = isAutomated ? 30_000 : 10_000
+
 	await Promise.all([
-		waitForServer({ url: apiUrl, healthEndpoint: '/health', timeout: 10_000 }),
-		waitForServer({ url: uiUrl, healthEndpoint: '/', timeout: 10_000 }),
+		waitForServer({
+			url: apiUrl,
+			healthEndpoint: '/health',
+			timeout: apiTimeout,
+		}),
+		waitForServer({ url: uiUrl, healthEndpoint: '/', timeout: uiTimeout }),
 	])
 }

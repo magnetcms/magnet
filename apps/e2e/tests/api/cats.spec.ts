@@ -12,7 +12,18 @@ test.describe('Cats API', () => {
 	})
 
 	test('POST /cats creates a new cat', async ({ authenticatedApiClient }) => {
-		const catData = testData.cat.create({ name: 'Whiskers' })
+		// Create owner first
+		const ownerData = testData.owner.create()
+		const ownerResponse = await authenticatedApiClient.createOwner(ownerData)
+		expect(ownerResponse.ok()).toBeTruthy()
+		const owner = await ownerResponse.json()
+		const ownerId = owner.id || owner._id
+
+		// Create cat with owner reference
+		const catData = testData.cat.create({
+			name: 'Whiskers',
+			owner: ownerId,
+		})
 
 		const response = await authenticatedApiClient.createCat(catData)
 
@@ -20,13 +31,20 @@ test.describe('Cats API', () => {
 
 		const cat = await response.json()
 		expect(cat.name).toBe(catData.name)
-		expect(cat.age).toBe(catData.age)
 		expect(cat.breed).toBe(catData.breed)
+		expect(cat.weight).toBe(catData.weight)
 	})
 
 	test('CRUD flow for cats', async ({ authenticatedApiClient }) => {
-		// Create
-		const catData = testData.cat.create()
+		// Create owner first
+		const ownerData = testData.owner.create()
+		const ownerResponse = await authenticatedApiClient.createOwner(ownerData)
+		expect(ownerResponse.ok()).toBeTruthy()
+		const owner = await ownerResponse.json()
+		const ownerId = owner.id || owner._id
+
+		// Create cat
+		const catData = testData.cat.create({ owner: ownerId })
 		const createResponse = await authenticatedApiClient.createCat(catData)
 		expect(createResponse.ok()).toBeTruthy()
 		const createdCat = await createResponse.json()

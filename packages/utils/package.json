@@ -16,13 +16,27 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./node": {
+      "import": {
+        "types": "./dist/node.d.ts",
+        "default": "./dist/node.js"
+      },
+      "require": {
+        "types": "./dist/node.d.cts",
+        "default": "./dist/node.cjs"
+      }
+    },
     "./text": {
       "import": "./dist/text.js",
       "require": "./dist/text.cjs"
     },
-    "./date": {
-      "import": "./dist/date.js",
-      "require": "./dist/date.cjs"
+    "./naming": {
+      "import": "./dist/naming.js",
+      "require": "./dist/naming.cjs"
+    },
+    "./field-mapping": {
+      "import": "./dist/field-mapping.js",
+      "require": "./dist/field-mapping.cjs"
     }
   },
   "types": "./dist/index.d.ts",

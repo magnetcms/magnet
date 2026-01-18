@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import {
 	BaseSchema,
 	Model,
@@ -8,6 +9,22 @@ import {
 import { Document, Model as MongooseModel } from 'mongoose'
 import { MongooseQueryBuilder } from '~/mongoose.query-builder'
 import { isMongoServerError, mapDocumentId, mapQueryId } from '~/utils'
+
+/**
+ * Generate a cryptographically secure random document ID
+ */
+function generateDocumentId(length = 24): string {
+	const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789'
+	const bytes = randomBytes(length)
+	let result = ''
+	for (let i = 0; i < length; i++) {
+		const byte = bytes[i]
+		if (byte !== undefined) {
+			result += ALPHABET[byte % ALPHABET.length]
+		}
+	}
+	return result
+}
 
 export function createModel<T>(
 	modelInstance: MongooseModel<Document & BaseSchema<T>>,
@@ -180,15 +197,34 @@ export function createModel<T>(
 			options?: ModelCreateOptions,
 		): Promise<BaseSchema<T>> {
 			try {
+				// Check if schema has documentId field (i18n enabled)
+				const hasDocumentId = this.model.schema.paths.documentId !== undefined
+
+				// Generate documentId if not provided and schema requires it
+				const createData = { ...data } as any
+				if (hasDocumentId && !createData.documentId) {
+					createData.documentId = generateDocumentId()
+				}
+
+				// Ensure locale and status have defaults if schema requires them
+				if (hasDocumentId) {
+					if (!createData.locale) {
+						createData.locale = this.currentLocale || 'en'
+					}
+					if (!createData.status) {
+						createData.status = 'draft'
+					}
+				}
+
 				let createdDoc: any
 
 				if (options?.skipValidation) {
 					// Create document without validation (for drafts)
-					const doc = new this.model(data)
+					const doc = new this.model(createData)
 					createdDoc = await doc.save({ validateBeforeSave: false })
 				} else {
 					// Normal create with validation
-					createdDoc = await this.model.create(data)
+					createdDoc = await this.model.create(createData)
 				}
 
 				const mappedDoc = mapDocumentId<T>(createdDoc.toObject())

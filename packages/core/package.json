@@ -51,6 +51,7 @@
   },
   "peerDependencies": {
     "@magnet-cms/common": "workspace:*",
+    "@magnet-cms/utils": "workspace:*",
     "@nestjs/common": "^11.1.12",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.1.12",

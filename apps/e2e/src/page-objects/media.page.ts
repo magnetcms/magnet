@@ -31,7 +31,7 @@ export class MediaPage {
 	}
 
 	async goto() {
-		await this.page.goto('/media')
+		await this.page.goto('media')
 	}
 
 	async expectLoaded() {
@@ -51,12 +51,6 @@ export class MediaPage {
 		await this.uploadZone.click()
 		const fileChooser = await fileChooserPromise
 		await fileChooser.setFiles(filePath)
-	}
-
-	async searchMedia(query: string) {
-		await this.searchInput.fill(query)
-		// Wait for debounce
-		await this.page.waitForTimeout(500)
 	}
 
 	async switchToGridView() {
@@ -84,5 +78,106 @@ export class MediaPage {
 
 	async expectEmptyState() {
 		await expect(this.emptyState).toBeVisible()
+	}
+
+	async editMetadata(
+		itemIndex: number,
+		metadata: {
+			alt?: string
+			tags?: string[]
+			folder?: string
+		},
+	) {
+		await this.selectMediaItem(itemIndex)
+		// Wait for detail view or edit dialog
+		await this.page.waitForTimeout(500)
+
+		if (metadata.alt) {
+			const altInput = this.page.getByLabel(/alt|description/i)
+			await altInput.fill(metadata.alt)
+		}
+
+		if (metadata.tags) {
+			const tagsInput = this.page.getByLabel(/tags/i)
+			await tagsInput.fill(metadata.tags.join(','))
+		}
+
+		if (metadata.folder) {
+			const folderInput = this.page.getByLabel(/folder/i)
+			await folderInput.fill(metadata.folder)
+		}
+
+		// Save changes
+		const saveButton = this.page.getByRole('button', { name: /save/i })
+		if (await saveButton.isVisible()) {
+			await saveButton.click()
+		}
+	}
+
+	async deleteMedia(itemIndex: number) {
+		await this.selectMediaItem(itemIndex)
+		await this.page.waitForTimeout(500)
+
+		const deleteButton = this.page.getByRole('button', { name: /delete/i })
+		await deleteButton.click()
+
+		// Confirm deletion if dialog appears
+		const confirmButton = this.page.getByRole('button', {
+			name: /confirm|delete|yes/i,
+		})
+		if (await confirmButton.isVisible()) {
+			await confirmButton.click()
+		}
+	}
+
+	async filterByFolder(folderName: string) {
+		await this.folderFilter.click()
+		await this.page.getByText(folderName).click()
+		await this.page.waitForTimeout(500)
+	}
+
+	async searchMedia(query: string) {
+		await this.searchInput.fill(query)
+		await this.page.waitForTimeout(500)
+	}
+
+	async uploadFileWithMetadata(
+		filePath: string,
+		metadata?: { folder?: string; tags?: string[]; alt?: string },
+	) {
+		await this.uploadButton.click()
+		const fileChooserPromise = this.page.waitForEvent('filechooser')
+		await this.uploadZone.click()
+		const fileChooser = await fileChooserPromise
+		await fileChooser.setFiles(filePath)
+
+		// Fill metadata if provided
+		if (metadata) {
+			if (metadata.folder) {
+				const folderInput = this.page.getByLabel(/folder/i)
+				await folderInput.fill(metadata.folder)
+			}
+
+			if (metadata.tags) {
+				const tagsInput = this.page.getByLabel(/tags/i)
+				await tagsInput.fill(metadata.tags.join(','))
+			}
+
+			if (metadata.alt) {
+				const altInput = this.page.getByLabel(/alt/i)
+				await altInput.fill(metadata.alt)
+			}
+		}
+
+		// Confirm upload
+		const uploadConfirmButton = this.page.getByRole('button', {
+			name: /upload|confirm/i,
+		})
+		if (await uploadConfirmButton.isVisible()) {
+			await uploadConfirmButton.click()
+		}
+
+		// Wait for upload to complete
+		await this.page.waitForTimeout(2000)
 	}
 }

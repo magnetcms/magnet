@@ -6,6 +6,7 @@ import type {
 	QueryBuilder,
 	SortQuery,
 } from '@magnet-cms/common'
+import { toCamelCase, toSnakeCase } from '@magnet-cms/utils'
 import {
 	and,
 	asc,
@@ -104,7 +105,7 @@ export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
 		const tableAny = this.table as any
 
 		for (const [key, direction] of Object.entries(sort)) {
-			const snakeKey = this.toSnakeCase(key)
+			const snakeKey = toSnakeCase(key)
 			const column = tableAny[snakeKey] || tableAny[key]
 
 			if (column) {
@@ -303,7 +304,7 @@ export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
 			}
 
 			// Get the column
-			const snakeKey = this.toSnakeCase(key)
+			const snakeKey = toSnakeCase(key)
 			const column = tableAny[snakeKey] || tableAny[key]
 
 			if (!column) continue
@@ -374,7 +375,7 @@ export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
 		const result: Record<string, any> = {}
 
 		for (const [key, value] of Object.entries(row)) {
-			const camelKey = this.toCamelCase(key)
+			const camelKey = toCamelCase(key)
 
 			// Convert timestamp fields to Date objects if they're strings or Date objects
 			// Drizzle returns timestamps as Date objects from PostgreSQL, but we ensure they're proper Date instances
@@ -406,19 +407,5 @@ export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
 		}
 
 		return result as BaseSchema<T>
-	}
-
-	/**
-	 * Convert camelCase to snake_case
-	 */
-	private toSnakeCase(str: string): string {
-		return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
-	}
-
-	/**
-	 * Convert snake_case to camelCase
-	 */
-	private toCamelCase(str: string): string {
-		return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
 	}
 }

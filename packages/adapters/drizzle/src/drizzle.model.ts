@@ -5,6 +5,7 @@ import {
 	ModelUpdateOptions,
 	ValidationException,
 } from '@magnet-cms/common'
+import { toCamelCase } from '@magnet-cms/utils'
 import type { Type } from '@nestjs/common'
 import { and, eq, sql } from 'drizzle-orm'
 import type { PgTable } from 'drizzle-orm/pg-core'
@@ -351,7 +352,7 @@ export function createModel<T>(
 			const result: Record<string, any> = {}
 
 			for (const [key, value] of Object.entries(row)) {
-				const camelKey = this._toCamelCase(key)
+				const camelKey = toCamelCase(key)
 
 				// Convert timestamp fields to Date objects if they're strings or Date objects
 				// Drizzle returns timestamps as Date objects from PostgreSQL, but we ensure they're proper Date instances
@@ -436,14 +437,6 @@ export function createModel<T>(
 			}
 
 			return result
-		}
-
-		/**
-		 * Convert snake_case to camelCase
-		 * @internal
-		 */
-		_toCamelCase(str: string): string {
-			return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
 		}
 	}
 }

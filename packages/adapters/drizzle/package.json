@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@magnet-cms/common": "workspace:*",
+    "@magnet-cms/utils": "workspace:*",
     "@neondatabase/serverless": "^0.10.0",
     "@nestjs/common": "^11.1.12",
     "@repo/biome": "workspace:*",
@@ -37,6 +38,7 @@
   },
   "peerDependencies": {
     "@magnet-cms/common": "workspace:*",
+    "@magnet-cms/utils": "workspace:*",
     "@nestjs/common": "^11.1.12",
     "drizzle-orm": "^0.38.0",
     "reflect-metadata": "0.2.2"

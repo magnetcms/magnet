@@ -1,5 +1,5 @@
 import { PropOptions, getSchemaOptions } from '@magnet-cms/common'
-import { pluralize } from '@magnet-cms/utils'
+import { pluralize, toSnakeCase } from '@magnet-cms/utils'
 import type { Type } from '@nestjs/common'
 import { and, eq, sql } from 'drizzle-orm'
 import {
@@ -189,13 +189,6 @@ function generateColumn(columnName: string, options: PropOptions): any {
 	}
 
 	return column
-}
-
-/**
- * Convert camelCase to snake_case
- */
-function toSnakeCase(str: string): string {
-	return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
 }
 
 /**

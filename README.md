@@ -7,7 +7,7 @@ A modern, headless CMS framework built on NestJS. Magnet provides a flexible arc
 ## Features
 
 - **NestJS Core**: Built on the robust NestJS framework for enterprise-grade applications
-- **Database Agnostic**: Ships with Mongoose adapter, easily extensible for other databases
+- **Database Agnostic**: Supports multiple databases via adapters (Mongoose, Drizzle ORM)
 - **Modern Admin UI**: Beautiful React-based admin interface with comprehensive content management
 - **Plugin System**: Extend functionality with plugins like Content Builder and SEO
 - **TypeScript First**: Full TypeScript support throughout the entire stack
@@ -19,7 +19,10 @@ A modern, headless CMS framework built on NestJS. Magnet provides a flexible arc
 ## Prerequisites
 
 - **Bun** 1.2.2 or later (recommended) or Node.js 18+
-- **MongoDB** 6.0+ (for Mongoose adapter)
+- **Database** (choose one):
+  - **MongoDB** 6.0+ (for Mongoose adapter)
+  - **PostgreSQL**, **MySQL**, or **SQLite** (for Drizzle adapter)
+  - **Supabase** (for Supabase adapter with auth and storage)
 - A terminal and code editor
 
 ## Quick Start
@@ -45,51 +48,63 @@ bun run dev:admin
 
 | Package | Description |
 |---------|-------------|
-| `@magnet/core` | Core NestJS module with Admin, Auth, Content, and Database modules |
-| `@magnet/common` | Shared types, decorators, and utilities |
-| `@magnet/utils` | Utility functions and helpers |
+| `@magnet-cms/core` | Core NestJS module with Admin, Auth, Content, and Database modules |
+| `@magnet-cms/common` | Shared types, decorators, and utilities |
+| `@magnet-cms/utils` | Utility functions and helpers |
 
 ### Adapters
 
 | Package | Description |
 |---------|-------------|
-| `@magnet/adapter-mongoose` | Mongoose database adapter with schema decorators |
+| `@magnet-cms/adapter-mongoose` | Mongoose database adapter with schema decorators for MongoDB |
+| `@magnet-cms/adapter-drizzle` | Drizzle ORM adapter supporting PostgreSQL, MySQL, and SQLite |
+| `@magnet-cms/adapter-supabase` | Supabase adapter providing auth strategy and storage adapter |
 
 ### Client Packages
 
 | Package | Description |
 |---------|-------------|
-| `@magnet/admin` | React-based admin UI application |
-| `@magnet/ui` | Shared UI component library (shadcn/ui based) |
+| `@magnet-cms/admin` | React-based admin UI application |
+| `@magnet-cms/ui` | Shared UI component library (shadcn/ui based) |
 
 ### Plugins
 
 | Package | Description |
 |---------|-------------|
-| `@magnet/plugin-content-builder` | Visual content builder plugin |
-| `@magnet/plugin-seo` | SEO management plugin |
+| `@magnet-cms/plugin-content-builder` | Visual content builder plugin |
+| `@magnet-cms/plugin-seo` | SEO management plugin |
 
 ## Project Structure
 
 ```
 magnet/
 ├── apps/
-│   ├── cats-example/      # Example NestJS application with Magnet
-│   ├── docs/              # Documentation site (Next.js + Fumadocs)
-│   └── e2e/               # End-to-end tests (Playwright)
+│   ├── e2e/               # End-to-end tests (Playwright)
+│   └── templates/         # Project templates and examples
+│       ├── drizzle-neon/       # Drizzle + Neon PostgreSQL template
+│       ├── drizzle-supabase/   # Drizzle + Supabase template
+│       ├── mongoose-auth/      # Mongoose + Auth strategy template
+│       └── mongoose-cats/      # Mongoose + Cats example template
 ├── packages/
 │   ├── adapters/
-│   │   └── mongoose/      # Mongoose database adapter
+│   │   ├── drizzle/       # Drizzle ORM database adapter
+│   │   ├── mongoose/      # Mongoose database adapter
+│   │   └── supabase/      # Supabase adapter (auth & storage)
 │   ├── client/
 │   │   ├── admin/         # Admin UI application
-│   │   └── ui/            # Shared component library
-│   ├── common/            # Shared types and decorators
-│   ├── core/              # Core Magnet framework
+│   │   └── ui/            # Shared UI component library (shadcn/ui based)
+│   ├── common/            # Shared types, decorators, and utilities
+│   ├── core/              # Core Magnet framework (NestJS modules)
 │   ├── plugins/
-│   │   ├── content-builder/
-│   │   └── seo/
+│   │   ├── content-builder/   # Visual content builder plugin
+│   │   └── seo/               # SEO management plugin
 │   ├── tooling/           # Shared build and config tools
+│   │   ├── biome/         # Biome linting configuration
+│   │   ├── tsup/          # tsup build configuration
+│   │   └── typescript/    # TypeScript configurations
 │   └── utils/             # Utility functions
+├── docs/                  # Documentation assets
+├── scripts/               # Development scripts
 └── package.json
 ```
 
@@ -119,24 +134,84 @@ bun run test:e2e         # Run end-to-end tests
 Install Magnet in your NestJS project:
 
 ```bash
-bun add @magnet/core @magnet/common @magnet/adapter-mongoose
+# For MongoDB (Mongoose adapter)
+bun add @magnet-cms/core @magnet-cms/common @magnet-cms/adapter-mongoose
+
+# For PostgreSQL/MySQL/SQLite (Drizzle adapter)
+bun add @magnet-cms/core @magnet-cms/common @magnet-cms/adapter-drizzle drizzle-orm
+
+# For Supabase
+bun add @magnet-cms/core @magnet-cms/common @magnet-cms/adapter-drizzle @magnet-cms/adapter-supabase
 ```
 
 ### Basic Configuration
 
-Configure Magnet in your `app.module.ts`:
+#### MongoDB (Mongoose)
+
+Configure Magnet with Mongoose adapter in your `app.module.ts`:
 
 ```typescript
 import { Module } from '@nestjs/common'
-import { MagnetModule } from '@magnet/core'
-import { MongooseAdapter } from '@magnet/adapter-mongoose'
+import { MagnetModule } from '@magnet-cms/core'
 
 @Module({
   imports: [
     MagnetModule.forRoot({
-      adapter: new MongooseAdapter({
+      db: {
         uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/magnet',
-      }),
+      },
+      jwt: {
+        secret: process.env.JWT_SECRET || 'your-secret-key',
+      },
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+#### PostgreSQL/MySQL/SQLite (Drizzle)
+
+Configure Magnet with Drizzle adapter:
+
+```typescript
+import { Module } from '@nestjs/common'
+import { MagnetModule } from '@magnet-cms/core'
+
+@Module({
+  imports: [
+    MagnetModule.forRoot({
+      db: {
+        connectionString: process.env.DATABASE_URL,
+        dialect: 'postgresql', // or 'mysql', 'sqlite'
+      },
+      jwt: {
+        secret: process.env.JWT_SECRET || 'your-secret-key',
+      },
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+#### Supabase
+
+Configure Magnet with Supabase adapter:
+
+```typescript
+import { Module } from '@nestjs/common'
+import { MagnetModule } from '@magnet-cms/core'
+
+@Module({
+  imports: [
+    MagnetModule.forRoot({
+      db: {
+        connectionString: process.env.SUPABASE_DATABASE_URL,
+        dialect: 'postgresql',
+      },
+      jwt: {
+        secret: process.env.SUPABASE_JWT_SECRET,
+      },
+      // Supabase adapter provides auth and storage
     }),
   ],
 })
@@ -148,7 +223,7 @@ export class AppModule {}
 Use decorators to define your content models:
 
 ```typescript
-import { Schema, Prop } from '@magnet/common'
+import { Schema, Prop } from '@magnet-cms/common'
 
 @Schema()
 export class Cat {
@@ -189,10 +264,26 @@ Visit the documentation to learn more about:
 2. Install dependencies: `bun install`
 3. Start development: `bun run dev`
 
-### Running the Example App
+### Running the Example Templates
 
 ```bash
-cd apps/cats-example
+# MongoDB example
+cd apps/templates/mongoose-cats
+bun install
+bun run start:dev
+
+# Neon PostgreSQL example
+cd apps/templates/drizzle-neon
+bun install
+bun run dev
+
+# Supabase example
+cd apps/templates/drizzle-supabase
+bun install
+bun run dev
+
+# Auth strategy example
+cd apps/templates/mongoose-auth
 bun install
 bun run start:dev
 ```
@@ -214,7 +305,10 @@ bun run build
 - **Framework**: NestJS
 - **Frontend**: React + Vite
 - **UI Components**: shadcn/ui
-- **Database**: MongoDB (Mongoose)
+- **Databases**: 
+  - MongoDB (via Mongoose adapter)
+  - PostgreSQL / MySQL / SQLite (via Drizzle ORM adapter)
+  - Supabase (via Supabase adapter)
 - **Build Tool**: Turborepo + tsup
 - **Testing**: Playwright
 - **Documentation**: Next.js + Fumadocs

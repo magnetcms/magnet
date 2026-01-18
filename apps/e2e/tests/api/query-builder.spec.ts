@@ -6,16 +6,30 @@ test.describe('Query Builder Integration', () => {
 		test('should create and list multiple records', async ({
 			authenticatedApiClient,
 		}) => {
+			// Create owner first via content API (use "Owner" schema name)
+			const ownerData = testData.owner.create()
+			const ownerResponse = await authenticatedApiClient.createContent(
+				'Owner',
+				ownerData,
+			)
+			expect(ownerResponse.ok()).toBeTruthy()
+			const ownerResult = await ownerResponse.json()
+			const ownerId =
+				ownerResult.data?.id ||
+				ownerResult.data?._id ||
+				ownerResult.id ||
+				ownerResult._id
+
 			// Create multiple cats to test list operations
 			const cats = await Promise.all([
 				authenticatedApiClient.createCat(
-					testData.cat.create({ name: 'QueryTest-Alpha', age: 3 }),
+					testData.cat.create({ name: 'QueryTest-Alpha', owner: ownerId }),
 				),
 				authenticatedApiClient.createCat(
-					testData.cat.create({ name: 'QueryTest-Beta', age: 5 }),
+					testData.cat.create({ name: 'QueryTest-Beta', owner: ownerId }),
 				),
 				authenticatedApiClient.createCat(
-					testData.cat.create({ name: 'QueryTest-Gamma', age: 1 }),
+					testData.cat.create({ name: 'QueryTest-Gamma', owner: ownerId }),
 				),
 			])
 
@@ -48,8 +62,25 @@ test.describe('Query Builder Integration', () => {
 		test('should handle CRUD operations correctly after query builder changes', async ({
 			authenticatedApiClient,
 		}) => {
+			// Create owner first via content API (use "Owner" schema name)
+			const ownerData = testData.owner.create()
+			const ownerResponse = await authenticatedApiClient.createContent(
+				'Owner',
+				ownerData,
+			)
+			expect(ownerResponse.ok()).toBeTruthy()
+			const ownerResult = await ownerResponse.json()
+			const ownerId =
+				ownerResult.data?.id ||
+				ownerResult.data?._id ||
+				ownerResult.id ||
+				ownerResult._id
+
 			// Create
-			const catData = testData.cat.create({ name: 'QueryBuilderTest' })
+			const catData = testData.cat.create({
+				name: 'QueryBuilderTest',
+				owner: ownerId,
+			})
 			const createResponse = await authenticatedApiClient.createCat(catData)
 			expect(createResponse.ok()).toBeTruthy()
 
@@ -63,13 +94,11 @@ test.describe('Query Builder Integration', () => {
 
 			const fetchedCat = await readResponse.json()
 			expect(fetchedCat.name).toBe(catData.name)
-			expect(fetchedCat.age).toBe(catData.age)
 			expect(fetchedCat.breed).toBe(catData.breed)
 
 			// Update
 			const updateResponse = await authenticatedApiClient.updateCat(catId, {
 				name: 'UpdatedQueryBuilderTest',
-				age: 10,
 			})
 			expect(updateResponse.ok()).toBeTruthy()
 
@@ -77,7 +106,6 @@ test.describe('Query Builder Integration', () => {
 			const verifyResponse = await authenticatedApiClient.getCat(catId)
 			const verifiedCat = await verifyResponse.json()
 			expect(verifiedCat.name).toBe('UpdatedQueryBuilderTest')
-			expect(verifiedCat.age).toBe(10)
 
 			// Delete
 			const deleteResponse = await authenticatedApiClient.deleteCat(catId)
@@ -102,8 +130,25 @@ test.describe('Query Builder Integration', () => {
 		test('should handle findById correctly', async ({
 			authenticatedApiClient,
 		}) => {
+			// Create owner first via content API (use "Owner" schema name)
+			const ownerData = testData.owner.create()
+			const ownerResponse = await authenticatedApiClient.createContent(
+				'Owner',
+				ownerData,
+			)
+			expect(ownerResponse.ok()).toBeTruthy()
+			const ownerResult = await ownerResponse.json()
+			const ownerId =
+				ownerResult.data?.id ||
+				ownerResult.data?._id ||
+				ownerResult.id ||
+				ownerResult._id
+
 			// Create a cat first
-			const catData = testData.cat.create({ name: 'FindByIdTest' })
+			const catData = testData.cat.create({
+				name: 'FindByIdTest',
+				owner: ownerId,
+			})
 			const createResponse = await authenticatedApiClient.createCat(catData)
 			const createdCat = await createResponse.json()
 			const catId = createdCat.id || createdCat._id

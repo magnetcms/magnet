@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { findPathInParentDirectories } from '@magnet-cms/utils/node'
 import { Controller, Get, Logger, Param, Res } from '@nestjs/common'
 import type { Response } from 'express'
 
@@ -78,26 +79,20 @@ export class PluginAssetsController {
 	 * Resolve the filesystem path to a plugin package
 	 */
 	private resolvePluginPath(packageName: string): string | null {
-		const possiblePaths = [
-			// Monorepo development
-			resolve(
-				process.cwd(),
-				'../../packages/plugins',
-				packageName.replace('@magnet-cms/plugin-', ''),
-			),
-			resolve(
-				process.cwd(),
-				'../packages/plugins',
-				packageName.replace('@magnet-cms/plugin-', ''),
-			),
-			// Installed as dependency
-			resolve(process.cwd(), 'node_modules', packageName),
-		]
+		const pluginFolder = packageName.replace('@magnet-cms/plugin-', '')
 
-		for (const path of possiblePaths) {
-			if (existsSync(path)) {
-				return path
-			}
+		// Search for monorepo development paths up to 5 levels
+		const monorepoPath = findPathInParentDirectories(
+			`packages/plugins/${pluginFolder}`,
+		)
+		if (monorepoPath) {
+			return monorepoPath
+		}
+
+		// Installed as dependency
+		const nodeModulesPath = resolve(process.cwd(), 'node_modules', packageName)
+		if (existsSync(nodeModulesPath)) {
+			return nodeModulesPath
 		}
 
 		return null

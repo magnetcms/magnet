@@ -59,37 +59,87 @@ const ContentManagerList = () => {
 		}
 	}, [name?.key, queryClient])
 
-	// Fetch content items - only enabled if we have a valid schema
-	// Use both name.key and schema metadata to ensure cache separation between schemas
-	// Default to showing only published documents when versioning is enabled (like Payload CMS)
-	// This prevents duplicates when a document has both draft and published versions
+	const hasVersioning = schemaOptions?.versioning !== false
+
+	// Fetch published items
 	const {
-		data: items,
-		isLoading,
-		error,
+		data: publishedItems,
+		isLoading: isLoadingPublished,
+		error: publishedError,
 	} = useQuery({
-		queryKey: [
-			'content',
-			'list',
-			name?.key || '',
-			schemaOptions?.versioning !== false ? 'published' : undefined,
-		],
+		queryKey: ['content', 'list', name?.key || '', 'published'],
 		queryFn: () =>
 			adapter.content.list<ContentItem>(name?.key || '', {
-				// Only filter by status if versioning is enabled
-				// Default to 'published' to avoid showing both draft and published versions
-				...(schemaOptions?.versioning !== false && { status: 'published' }),
+				status: 'published',
 			}),
-		// Refetch on mount to ensure fresh data when navigating between schemas
 		refetchOnMount: 'always',
-		// Don't use stale data - always refetch when schema changes
 		staleTime: 0,
-		// Don't keep cached data in memory to prevent accumulation
 		gcTime: 0,
-		// Don't show placeholder data from previous queries
 		placeholderData: undefined,
-		enabled: !!name?.key, // Only fetch if we have a valid schema name
+		enabled: !!name?.key && hasVersioning,
 	})
+
+	// Fetch draft items (to include draft-only documents that have no published version)
+	const {
+		data: draftItems,
+		isLoading: isLoadingDrafts,
+		error: draftError,
+	} = useQuery({
+		queryKey: ['content', 'list', name?.key || '', 'draft'],
+		queryFn: () =>
+			adapter.content.list<ContentItem>(name?.key || '', { status: 'draft' }),
+		refetchOnMount: 'always',
+		staleTime: 0,
+		gcTime: 0,
+		placeholderData: undefined,
+		enabled: !!name?.key && hasVersioning,
+	})
+
+	// Fetch all items when versioning is disabled
+	const {
+		data: allItems,
+		isLoading: isLoadingAll,
+		error: allError,
+	} = useQuery({
+		queryKey: ['content', 'list', name?.key || '', 'all'],
+		queryFn: () => adapter.content.list<ContentItem>(name?.key || ''),
+		refetchOnMount: 'always',
+		staleTime: 0,
+		gcTime: 0,
+		placeholderData: undefined,
+		enabled: !!name?.key && !hasVersioning,
+	})
+
+	// Merge items: show published version if exists, otherwise show draft-only items
+	// This ensures items that only exist as drafts are still visible in the list
+	// We add a _isDraftOnly flag to distinguish draft-only items in the UI
+	const items = useMemo(() => {
+		if (!hasVersioning) {
+			return allItems || []
+		}
+
+		const published = publishedItems || []
+		const drafts = draftItems || []
+
+		// Create a set of documentIds that have published versions
+		const publishedDocIds = new Set(
+			published.map((item) => item.documentId || item.id),
+		)
+
+		// Filter drafts to only include those without a published version
+		// Mark them with _isDraftOnly so we can show a badge in the UI
+		const draftOnlyItems = drafts
+			.filter((draft) => !publishedDocIds.has(draft.documentId || draft.id))
+			.map((draft) => ({ ...draft, _isDraftOnly: true }))
+
+		// Return published items + draft-only items
+		return [...published, ...draftOnlyItems]
+	}, [hasVersioning, publishedItems, draftItems, allItems])
+
+	const isLoading = hasVersioning
+		? isLoadingPublished || isLoadingDrafts
+		: isLoadingAll
+	const error = hasVersioning ? publishedError || draftError : allError
 
 	// Get visible properties (only those with UI defined) - computed before useMemo
 	const visibleProperties =
@@ -180,8 +230,16 @@ const ContentManagerList = () => {
 			format: (value: unknown, row: ContentItem) => {
 				// Prefer documentId from the row, fallback to id
 				const idValue = row.documentId || row.id || value
+				const isDraftOnly = '_isDraftOnly' in row && row._isDraftOnly === true
 				return idValue ? (
-					String(idValue)
+					<span className="flex items-center gap-2">
+						{String(idValue)}
+						{isDraftOnly && (
+							<Badge variant="secondary" className="text-xs">
+								Draft
+							</Badge>
+						)}
+					</span>
 				) : (
 					<Badge variant="outline" className="text-muted-foreground">
 						Empty
