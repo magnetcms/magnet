@@ -11,9 +11,6 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "magnet-template-mongoose-cats",
-    "magnet-template-drizzle-neon",
-    "magnet-template-drizzle-supabase",
     "@magnet-cms/e2e"
   ]
 }
