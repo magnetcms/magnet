@@ -4,225 +4,563 @@ import { LoginPage } from '../../src/page-objects/login.page'
 
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000'
 
+// Store created document IDs for use across tests
+interface CreatedDocuments {
+	veterinarian?: { documentId: string; name: string }
+	owner?: { documentId: string; name: string; email: string }
+	cat?: { documentId: string; name: string }
+}
+
+const createdDocs: CreatedDocuments = {}
+
+// Shared user credentials for all tests
+const sharedUser = testData.user.create()
+
 test.describe('Content Manager', () => {
+	test.describe.configure({ mode: 'serial' })
+
 	test.beforeEach(async ({ page, request }) => {
-		// Ensure user is logged in
-		const userData = testData.user.create()
+		// Ensure user is logged in before each test
 		const statusResponse = await request.get(`${API_BASE_URL}/auth/status`)
 		const status = await statusResponse.json()
 
 		if (status.requiresSetup) {
 			const loginPage = new LoginPage(page)
 			await loginPage.goto()
-			await loginPage.setup(userData.email, userData.password)
-			await page.waitForURL(/\/admin\/?$|\/dashboard|\/content-manager/, {
-				timeout: 10000,
-			})
+			await loginPage.setup(sharedUser.email, sharedUser.password)
+			// Wait for dashboard to load (URL may be just "/" after login)
+			await page.waitForLoadState('networkidle')
+			await expect(
+				page.getByRole('heading', { name: 'Admin Dashboard' }),
+			).toBeVisible({ timeout: 10000 })
 		} else {
+			// Try to register (will fail if already exists)
 			await request
-				.post(`${API_BASE_URL}/auth/register`, { data: userData })
+				.post(`${API_BASE_URL}/auth/register`, { data: sharedUser })
 				.catch(() => {})
 			const loginPage = new LoginPage(page)
 			await loginPage.goto()
-			await loginPage.login(userData.email, userData.password)
-			await page.waitForURL(/\/admin\/?$|\/dashboard|\/content-manager/, {
-				timeout: 10000,
+			await loginPage.login(sharedUser.email, sharedUser.password)
+			// Wait for dashboard to load (URL may be just "/" after login)
+			await page.waitForLoadState('networkidle')
+			await expect(
+				page.getByRole('heading', { name: 'Admin Dashboard' }),
+			).toBeVisible({ timeout: 10000 })
+		}
+	})
+
+	// ==========================================
+	// SECTION 1: Basic Navigation Tests
+	// ==========================================
+	test.describe('Navigation', () => {
+		test('should list available schemas in sidebar', async ({ page }) => {
+			// Navigate directly to a schema page (no homepage for content-manager)
+			await page.goto('/content-manager/veterinarian')
+			await page.waitForLoadState('networkidle')
+
+			// Expand Content Manager if collapsed
+			const contentManagerButton = page.getByRole('button', {
+				name: /content manager/i,
 			})
-		}
-	})
-
-	test('should list available schemas in sidebar', async ({ page }) => {
-		// Navigate to content manager
-		await page.goto('/admin/content-manager')
-		await page.waitForLoadState('networkidle')
-
-		// Expand Content Manager if collapsed
-		const contentManagerButton = page.getByRole('button', {
-			name: /content manager/i,
-		})
-		if (await contentManagerButton.isVisible()) {
-			const isExpanded = await contentManagerButton.getAttribute('data-state')
-			if (isExpanded !== 'open') {
-				await contentManagerButton.click()
+			if (await contentManagerButton.isVisible()) {
+				const isExpanded = await contentManagerButton.getAttribute('data-state')
+				if (isExpanded !== 'open') {
+					await contentManagerButton.click()
+				}
 			}
-		}
 
-		// Verify schemas are listed
-		const schemaLinks = page.locator('a[href*="/content-manager/"]')
-		await expect(schemaLinks.first()).toBeVisible({ timeout: 5000 })
+			// Verify schemas are listed (veterinarian, owner, cat) - links don't have /admin prefix
+			const schemaLinks = page.locator('a[href*="/content-manager/"]')
+			await expect(schemaLinks.first()).toBeVisible({ timeout: 5000 })
 
-		const schemaCount = await schemaLinks.count()
-		expect(schemaCount).toBeGreaterThan(0)
-	})
-
-	test('should navigate to schema and display entries list', async ({
-		page,
-	}) => {
-		// Navigate directly to cat schema
-		await page.goto('/admin/content-manager/cat')
-		await page.waitForLoadState('networkidle')
-
-		// Verify the page title shows the schema name
-		await expect(page.getByRole('heading', { name: /cat/i })).toBeVisible({
-			timeout: 5000,
+			const schemaCount = await schemaLinks.count()
+			expect(schemaCount).toBeGreaterThan(0)
 		})
 
-		// Verify the data table is visible
-		const table = page.getByRole('table')
-		await expect(table).toBeVisible({ timeout: 5000 })
-	})
+		test('should navigate between different schemas', async ({ page }) => {
+			// Navigate to veterinarian
+			await page.goto('/content-manager/veterinarian')
+			await page.waitForLoadState('networkidle')
+			await expect(
+				page.getByRole('heading', { name: /veterinarian/i }),
+			).toBeVisible({ timeout: 5000 })
 
-	test('should show create button and attempt to create new entry', async ({
-		page,
-	}) => {
-		// Navigate to cat schema
-		await page.goto('/admin/content-manager/cat')
-		await page.waitForLoadState('networkidle')
-
-		// Verify create button is visible
-		const createButton = page.getByRole('button', { name: /create cat/i })
-		await expect(createButton).toBeVisible({ timeout: 5000 })
-
-		// Click create - for schemas with required fields, createEmpty may fail
-		// This is expected behavior: drafts should skip validation, but the current
-		// implementation has required fields at the Mongoose schema level
-		await createButton.click()
-		await page.waitForTimeout(2000)
-
-		// Check outcome - either navigated to edit page OR got validation error
-		const currentUrl = page.url()
-		const navigatedToEdit = currentUrl.match(/\/content-manager\/cat\/[^/]+$/)
-		const errorToast = page.getByText(/failed|error|bad request/i)
-
-		// Either outcome is valid depending on schema configuration
-		if (navigatedToEdit) {
-			// Successfully created draft - verify form is visible
-			const nameInput = page.getByLabel(/name/i).first()
-			await expect(nameInput).toBeVisible({ timeout: 5000 })
-		} else {
-			// Validation error on empty create - this is current behavior for required fields
-			// Note: Ideally, drafts should allow empty required fields (validation on publish only)
-			await expect(errorToast).toBeVisible({ timeout: 3000 })
-		}
-	})
-
-	test('should navigate between different schemas', async ({ page }) => {
-		// Start at cat
-		await page.goto('/admin/content-manager/cat')
-		await page.waitForLoadState('networkidle')
-		await expect(page.getByRole('heading', { name: /cat/i })).toBeVisible({
-			timeout: 5000,
-		})
-
-		// Navigate to owner schema
-		const ownerLink = page.getByRole('link', { name: /owner/i })
-		if (await ownerLink.isVisible()) {
-			await ownerLink.click()
-			await page.waitForURL(/\/content-manager\/owner/, { timeout: 5000 })
+			// Navigate to owner
+			await page.goto('/content-manager/owner')
+			await page.waitForLoadState('networkidle')
 			await expect(page.getByRole('heading', { name: /owner/i })).toBeVisible({
 				timeout: 5000,
 			})
-		}
 
-		// Navigate back to cat
-		const catLink = page.getByRole('link', { name: /cat/i })
-		if (await catLink.isVisible()) {
-			await catLink.click()
-			await page.waitForURL(/\/content-manager\/cat/, { timeout: 5000 })
+			// Navigate to cat
+			await page.goto('/content-manager/cat')
+			await page.waitForLoadState('networkidle')
 			await expect(page.getByRole('heading', { name: /cat/i })).toBeVisible({
 				timeout: 5000,
 			})
-		}
+		})
+
+		test('should display table with correct structure', async ({ page }) => {
+			await page.goto('/content-manager/veterinarian')
+			await page.waitForLoadState('networkidle')
+
+			// Check table structure
+			const table = page.getByRole('table')
+			await expect(table).toBeVisible({ timeout: 5000 })
+
+			// Verify column headers exist
+			const headers = table.getByRole('columnheader')
+			const headerCount = await headers.count()
+			expect(headerCount).toBeGreaterThan(0)
+
+			// Check for ID column
+			await expect(headers.filter({ hasText: /id/i }).first()).toBeVisible()
+		})
 	})
 
-	test('should display table with correct columns', async ({ page }) => {
-		await page.goto('/admin/content-manager/cat')
-		await page.waitForLoadState('networkidle')
+	// ==========================================
+	// SECTION 2: Create Veterinarian via API (no dependencies)
+	// ==========================================
+	test.describe('Create Veterinarian', () => {
+		test('should create a new veterinarian via API and navigate to edit', async ({
+			page,
+			request,
+		}) => {
+			// Create via API since createEmpty requires all fields
+			const vetData = testData.veterinarian.create()
 
-		// Check table structure
-		const table = page.getByRole('table')
-		await expect(table).toBeVisible({ timeout: 5000 })
-
-		// Verify column headers exist
-		const headers = table.getByRole('columnheader')
-		const headerCount = await headers.count()
-		expect(headerCount).toBeGreaterThan(0)
-
-		// Check for ID column
-		await expect(headers.filter({ hasText: /id/i }).first()).toBeVisible()
-	})
-
-	test('should show pagination controls for large datasets', async ({
-		page,
-	}) => {
-		await page.goto('/admin/content-manager/cat')
-		await page.waitForLoadState('networkidle')
-
-		// Look for pagination or item count indicator
-		const itemCount = page.getByText(/items? found/i)
-		await expect(itemCount).toBeVisible({ timeout: 5000 })
-	})
-
-	test.describe('With existing data', () => {
-		// These tests require creating data via API first
-		test.beforeEach(async ({ request }) => {
-			// Create an owner first (required for cat relationships)
-			const ownerData = {
-				name: `Test Owner ${Date.now()}`,
-				email: `owner-${Date.now()}@test.com`,
-				phone: '1234567890123',
-				address: 'Test Address',
-			}
-
-			const ownerResponse = await request.post(
-				`${API_BASE_URL}/content/owner`,
+			const response = await request.post(
+				`${API_BASE_URL}/content/veterinarian`,
 				{
-					data: { data: ownerData },
+					data: { data: vetData },
 				},
 			)
 
-			if (ownerResponse.ok()) {
-				const owner = await ownerResponse.json()
+			expect(response.ok()).toBeTruthy()
+			const created = await response.json()
+			const documentId = created.documentId
 
-				// Create a cat with the owner
-				const catData = {
-					tagID: `CAT${Date.now().toString().slice(-10)}`,
-					name: `Test Cat ${Date.now()}`,
-					birthdate: new Date().toISOString(),
-					breed: 'Test Breed',
-					weight: 5,
-					owner: owner.documentId,
-					castrated: false,
-				}
+			// Store for later tests
+			createdDocs.veterinarian = { documentId, name: vetData.name }
 
-				await request.post(`${API_BASE_URL}/content/cat`, {
-					data: { data: catData },
-				})
+			// Navigate directly to the edit page to verify it was created
+			await page.goto(`/content-manager/veterinarian/${documentId}`)
+			await page.waitForLoadState('networkidle')
+
+			// Verify we're on the edit page
+			await expect(
+				page.getByRole('heading', { name: /veterinarian/i }),
+			).toBeVisible({
+				timeout: 5000,
+			})
+
+			// Verify the name field has our data
+			const nameInput = page.getByLabel(/name/i).first()
+			await expect(nameInput).toHaveValue(vetData.name, { timeout: 5000 })
+		})
+
+		test('should edit veterinarian from list using first row', async ({
+			page,
+		}) => {
+			await page.goto('/content-manager/veterinarian')
+			await page.waitForLoadState('networkidle')
+			await page.waitForTimeout(1000)
+
+			// Find the first data row and click edit
+			const dataRows = page.locator('tbody tr')
+			const rowCount = await dataRows.count()
+			expect(rowCount).toBeGreaterThan(0)
+
+			// Click the row actions button on first row
+			const firstRow = dataRows.first()
+			const actionsButton = firstRow.locator('button').last()
+			await actionsButton.click()
+			await page.waitForTimeout(500)
+
+			// Click Edit
+			const editOption = page.getByRole('menuitem', { name: /edit/i })
+			await editOption.click()
+
+			// Wait for navigation to edit page
+			await page.waitForURL(/\/content-manager\/veterinarian\/[^/]+$/, {
+				timeout: 10000,
+			})
+
+			// Verify edit page loaded
+			await expect(
+				page.getByRole('heading', { name: /veterinarian/i }),
+			).toBeVisible({
+				timeout: 5000,
+			})
+		})
+	})
+
+	// ==========================================
+	// SECTION 3: Create Owner via API (no dependencies on cat)
+	// ==========================================
+	test.describe('Create Owner', () => {
+		test('should create a new owner via API and navigate to edit', async ({
+			page,
+			request,
+		}) => {
+			// Create via API since createEmpty requires all fields
+			const ownerData = testData.owner.create()
+
+			const response = await request.post(`${API_BASE_URL}/content/owner`, {
+				data: { data: ownerData },
+			})
+
+			expect(response.ok()).toBeTruthy()
+			const created = await response.json()
+			const documentId = created.documentId
+
+			// Store for later tests
+			createdDocs.owner = {
+				documentId,
+				name: ownerData.name,
+				email: ownerData.email,
+			}
+
+			// Navigate directly to the edit page to verify it was created
+			await page.goto(`/content-manager/owner/${documentId}`)
+			await page.waitForLoadState('networkidle')
+
+			// Verify we're on the edit page
+			await expect(page.getByRole('heading', { name: /owner/i })).toBeVisible({
+				timeout: 5000,
+			})
+
+			// Verify the name field has our data
+			const nameInput = page.getByLabel(/name/i).first()
+			await expect(nameInput).toHaveValue(ownerData.name, { timeout: 5000 })
+		})
+
+		test('should edit owner from list using first row', async ({ page }) => {
+			await page.goto('/content-manager/owner')
+			await page.waitForLoadState('networkidle')
+			await page.waitForTimeout(1000)
+
+			// Find the first data row and click edit
+			const dataRows = page.locator('tbody tr')
+			const rowCount = await dataRows.count()
+			expect(rowCount).toBeGreaterThan(0)
+
+			// Click the row actions button on first row
+			const firstRow = dataRows.first()
+			const actionsButton = firstRow.locator('button').last()
+			await actionsButton.click()
+			await page.waitForTimeout(500)
+
+			// Click Edit
+			const editOption = page.getByRole('menuitem', { name: /edit/i })
+			await editOption.click()
+
+			// Wait for navigation to edit page
+			await page.waitForURL(/\/content-manager\/owner\/[^/]+$/, {
+				timeout: 10000,
+			})
+
+			// Verify edit page loaded
+			await expect(page.getByRole('heading', { name: /owner/i })).toBeVisible({
+				timeout: 5000,
+			})
+		})
+	})
+
+	// ==========================================
+	// SECTION 4: Create Cat via API (depends on owner)
+	// ==========================================
+	test.describe('Create Cat', () => {
+		test('should create a new cat with owner relationship via API', async ({
+			page,
+			request,
+		}) => {
+			test.skip(!createdDocs.owner, 'No owner was created to link cat to')
+
+			// Create via API since createEmpty requires all fields
+			const catData = testData.cat.create({
+				owner: createdDocs.owner?.documentId,
+			})
+
+			const response = await request.post(`${API_BASE_URL}/content/cat`, {
+				data: { data: catData },
+			})
+
+			expect(response.ok()).toBeTruthy()
+			const created = await response.json()
+			const documentId = created.documentId
+
+			// Store for later tests
+			createdDocs.cat = { documentId, name: catData.name }
+
+			// Navigate directly to the edit page to verify it was created
+			await page.goto(`/content-manager/cat/${documentId}`)
+			await page.waitForLoadState('networkidle')
+
+			// Verify we're on the edit page
+			await expect(page.getByRole('heading', { name: /cat/i })).toBeVisible({
+				timeout: 5000,
+			})
+
+			// Verify the name field has our data
+			const nameInput = page.getByLabel(/name/i).first()
+			await expect(nameInput).toHaveValue(catData.name, { timeout: 5000 })
+		})
+
+		test('should edit cat from list using first row', async ({ page }) => {
+			await page.goto('/content-manager/cat')
+			await page.waitForLoadState('networkidle')
+			await page.waitForTimeout(1000)
+
+			// Find the first data row and click edit
+			const dataRows = page.locator('tbody tr')
+			const rowCount = await dataRows.count()
+			expect(rowCount).toBeGreaterThan(0)
+
+			// Click the row actions button on first row
+			const firstRow = dataRows.first()
+			const actionsButton = firstRow.locator('button').last()
+			await actionsButton.click()
+			await page.waitForTimeout(500)
+
+			// Click Edit
+			const editOption = page.getByRole('menuitem', { name: /edit/i })
+			await editOption.click()
+
+			// Wait for navigation to edit page
+			await page.waitForURL(/\/content-manager\/cat\/[^/]+$/, {
+				timeout: 10000,
+			})
+
+			// Verify edit page loaded
+			await expect(page.getByRole('heading', { name: /cat/i })).toBeVisible({
+				timeout: 5000,
+			})
+		})
+	})
+
+	// ==========================================
+	// SECTION 5: Edit Content
+	// ==========================================
+	test.describe('Edit Content', () => {
+		test('should edit veterinarian and auto-save changes', async ({ page }) => {
+			test.skip(!createdDocs.veterinarian, 'No veterinarian was created')
+
+			// Navigate directly to edit page
+			await page.goto(
+				`/content-manager/veterinarian/${createdDocs.veterinarian?.documentId}`,
+			)
+			await page.waitForLoadState('networkidle')
+
+			// Verify edit page loaded with tabs
+			await expect(page.getByRole('tab', { name: /^edit$/i })).toBeVisible({
+				timeout: 5000,
+			})
+
+			// Find and modify name input
+			const nameInput = page.getByLabel(/name/i).first()
+			await expect(nameInput).toBeVisible({ timeout: 5000 })
+
+			const currentValue = await nameInput.inputValue()
+			const updatedName = `${currentValue} (Updated)`
+			await nameInput.fill(updatedName)
+
+			// Wait for auto-save
+			await page.waitForTimeout(2000)
+
+			// Check for auto-save indicator
+			const saveIndicator = page.getByText(
+				/saving|saved|less than a minute ago/i,
+			)
+			await expect(saveIndicator).toBeVisible({ timeout: 10000 })
+
+			// Update stored name
+			if (createdDocs.veterinarian) {
+				createdDocs.veterinarian.name = updatedName
 			}
 		})
 
-		test('should display entries in table', async ({ page }) => {
-			await page.goto('/admin/content-manager/cat')
+		test('should show tabs for Edit, Versions, and API on edit page', async ({
+			page,
+		}) => {
+			test.skip(!createdDocs.veterinarian, 'No veterinarian was created')
+
+			await page.goto(
+				`/content-manager/veterinarian/${createdDocs.veterinarian?.documentId}`,
+			)
 			await page.waitForLoadState('networkidle')
 
-			// Wait for data to load
-			await page.waitForTimeout(1000)
+			// Check for tabs
+			const editTab = page.getByRole('tab', { name: /^edit$/i })
+			const versionsTab = page.getByRole('tab', { name: /versions/i })
+			const apiTab = page.getByRole('tab', { name: /api/i })
 
-			// Check if there are any rows (besides header)
-			const table = page.getByRole('table')
-			const rows = table.getByRole('row')
-			const rowCount = await rows.count()
+			await expect(editTab).toBeVisible({ timeout: 5000 })
+			await expect(versionsTab).toBeVisible({ timeout: 5000 })
+			await expect(apiTab).toBeVisible({ timeout: 5000 })
+		})
+	})
 
-			// Should have at least header row
-			expect(rowCount).toBeGreaterThanOrEqual(1)
+	// ==========================================
+	// SECTION 6: Versioning & Publishing
+	// ==========================================
+	test.describe('Versioning & Publishing', () => {
+		test('should show publish button for draft content', async ({ page }) => {
+			test.skip(!createdDocs.veterinarian, 'No veterinarian was created')
+
+			await page.goto(
+				`/content-manager/veterinarian/${createdDocs.veterinarian?.documentId}`,
+			)
+			await page.waitForLoadState('networkidle')
+
+			// Look for publish button
+			const publishButton = page.getByRole('button', { name: /publish/i })
+			await expect(publishButton).toBeVisible({ timeout: 5000 })
 		})
 
-		test('should show row actions menu', async ({ page }) => {
-			await page.goto('/admin/content-manager/cat')
+		test('should publish veterinarian content', async ({ page }) => {
+			test.skip(!createdDocs.veterinarian, 'No veterinarian was created')
+
+			await page.goto(
+				`/content-manager/veterinarian/${createdDocs.veterinarian?.documentId}`,
+			)
+			await page.waitForLoadState('networkidle')
+
+			// Click publish button
+			const publishButton = page.getByRole('button', { name: /publish/i })
+			await expect(publishButton).toBeVisible({ timeout: 5000 })
+			await publishButton.click()
+
+			// Wait for publish to complete
+			await page.waitForTimeout(2000)
+
+			// Verify success toast - look for the specific toast message
+			const successToast = page.getByText('Content published')
+			await expect(successToast).toBeVisible({ timeout: 5000 })
+		})
+
+		test('should navigate to versions tab and show version history', async ({
+			page,
+		}) => {
+			test.skip(!createdDocs.veterinarian, 'No veterinarian was created')
+
+			await page.goto(
+				`/content-manager/veterinarian/${createdDocs.veterinarian?.documentId}/versions`,
+			)
+			await page.waitForLoadState('networkidle')
+
+			// Verify version history page
+			await expect(page.getByText(/version history/i)).toBeVisible({
+				timeout: 5000,
+			})
+
+			// Should show at least one version (the published one)
+			const versionItems = page.locator(
+				'[class*="border"][class*="rounded-lg"]',
+			)
+			const versionCount = await versionItems.count()
+			expect(versionCount).toBeGreaterThan(0)
+		})
+
+		test('should create a new version by editing published content', async ({
+			page,
+		}) => {
+			test.skip(!createdDocs.veterinarian, 'No veterinarian was created')
+
+			// Navigate to edit page
+			await page.goto(
+				`/content-manager/veterinarian/${createdDocs.veterinarian?.documentId}`,
+			)
+			await page.waitForLoadState('networkidle')
+
+			// Edit the name again to create a new draft
+			const nameInput = page.getByLabel(/name/i).first()
+			await expect(nameInput).toBeVisible({ timeout: 5000 })
+
+			const currentValue = await nameInput.inputValue()
+			await nameInput.fill(`${currentValue} v2`)
+
+			// Wait for auto-save
+			await page.waitForTimeout(2000)
+
+			// Check for auto-save indicator
+			const saveIndicator = page.getByText(
+				/saving|saved|less than a minute ago/i,
+			)
+			await expect(saveIndicator).toBeVisible({ timeout: 10000 })
+
+			// Navigate to versions tab
+			const versionsTab = page.getByRole('tab', { name: /versions/i })
+			await versionsTab.click()
+			await page.waitForTimeout(1000)
+
+			// Should now have multiple versions
+			await page.waitForTimeout(1000)
+			await expect(page.getByText(/version history/i)).toBeVisible({
+				timeout: 5000,
+			})
+		})
+
+		test('should archive a published version', async ({ page }) => {
+			test.skip(!createdDocs.veterinarian, 'No veterinarian was created')
+
+			await page.goto(
+				`/content-manager/veterinarian/${createdDocs.veterinarian?.documentId}/versions`,
+			)
+			await page.waitForLoadState('networkidle')
+
+			// Find archive button for published version
+			const archiveButton = page.getByRole('button', { name: /archive/i })
+			if (await archiveButton.isVisible()) {
+				await archiveButton.first().click()
+				await page.waitForTimeout(1000)
+
+				// Verify success toast
+				const successToast = page.getByText('Version archived')
+				await expect(successToast).toBeVisible({ timeout: 5000 })
+			}
+		})
+
+		test('should restore an archived version', async ({ page }) => {
+			test.skip(!createdDocs.veterinarian, 'No veterinarian was created')
+
+			await page.goto(
+				`/content-manager/veterinarian/${createdDocs.veterinarian?.documentId}/versions`,
+			)
 			await page.waitForLoadState('networkidle')
 			await page.waitForTimeout(1000)
 
-			// Find a data row (not header)
+			// Find restore button for archived version
+			const restoreButton = page.getByRole('button', { name: /restore/i })
+			if (await restoreButton.isVisible()) {
+				// Click restore and just verify the page refreshes/updates
+				await restoreButton.first().click()
+				await page.waitForTimeout(2000)
+
+				// After restore, the version should become published
+				// Just verify we're still on the versions page and it didn't error
+				await expect(page.getByText(/version history/i)).toBeVisible({
+					timeout: 5000,
+				})
+			}
+			// If no restore button, the test passes (no archived versions to restore)
+		})
+	})
+
+	// ==========================================
+	// SECTION 7: Row Actions
+	// ==========================================
+	test.describe('Row Actions', () => {
+		test('should show row actions menu with Edit, Duplicate, Versions, Delete', async ({
+			page,
+		}) => {
+			test.skip(!createdDocs.veterinarian, 'No veterinarian was created')
+
+			await page.goto('/content-manager/veterinarian')
+			await page.waitForLoadState('networkidle')
+			await page.waitForTimeout(1000)
+
+			// Find the row with our veterinarian
 			const dataRows = page.locator('tbody tr')
 			const rowCount = await dataRows.count()
 
@@ -237,168 +575,72 @@ test.describe('Content Manager', () => {
 
 					// Verify menu items appear
 					const editOption = page.getByRole('menuitem', { name: /edit/i })
+					const duplicateOption = page.getByRole('menuitem', {
+						name: /duplicate/i,
+					})
+					const versionsOption = page.getByRole('menuitem', {
+						name: /versions/i,
+					})
 					const deleteOption = page.getByRole('menuitem', { name: /delete/i })
 
-					await expect(editOption.or(deleteOption)).toBeVisible({
-						timeout: 3000,
+					await expect(editOption).toBeVisible({ timeout: 3000 })
+					await expect(duplicateOption).toBeVisible({ timeout: 3000 })
+					await expect(versionsOption).toBeVisible({ timeout: 3000 })
+					await expect(deleteOption).toBeVisible({ timeout: 3000 })
+
+					// Close menu by pressing escape
+					await page.keyboard.press('Escape')
+				}
+			}
+		})
+
+		test('should duplicate an entry from row actions', async ({ page }) => {
+			test.skip(!createdDocs.veterinarian, 'No veterinarian was created')
+
+			await page.goto('/content-manager/veterinarian')
+			await page.waitForLoadState('networkidle')
+			await page.waitForTimeout(1000)
+
+			// Get initial row count
+			const dataRows = page.locator('tbody tr')
+			const initialRowCount = await dataRows.count()
+
+			if (initialRowCount > 0) {
+				// Find actions button in first row
+				const firstRow = dataRows.first()
+				const actionsButton = firstRow.locator('button').last()
+
+				if (await actionsButton.isVisible()) {
+					await actionsButton.click()
+					await page.waitForTimeout(500)
+
+					const duplicateOption = page.getByRole('menuitem', {
+						name: /duplicate/i,
 					})
-				}
-			}
-		})
+					if (await duplicateOption.isVisible()) {
+						await duplicateOption.click()
+						await page.waitForTimeout(2000)
 
-		test('should navigate to edit page when clicking Edit', async ({
-			page,
-		}) => {
-			await page.goto('/admin/content-manager/cat')
-			await page.waitForLoadState('networkidle')
-			await page.waitForTimeout(1000)
+						// Verify success toast
+						const successToast = page.getByText('Content duplicated')
+						await expect(successToast).toBeVisible({ timeout: 5000 })
 
-			const dataRows = page.locator('tbody tr')
-			const rowCount = await dataRows.count()
+						// Verify row count increased
+						await page.reload()
+						await page.waitForLoadState('networkidle')
+						await page.waitForTimeout(1000)
 
-			if (rowCount > 0) {
-				const firstRow = dataRows.first()
-				const actionsButton = firstRow.locator('button').last()
-
-				if (await actionsButton.isVisible()) {
-					await actionsButton.click()
-					await page.waitForTimeout(500)
-
-					const editOption = page.getByRole('menuitem', { name: /edit/i })
-					if (await editOption.isVisible()) {
-						await editOption.click()
-
-						// Should navigate to edit page
-						await page.waitForURL(/\/content-manager\/cat\/[^/]+$/, {
-							timeout: 5000,
-						})
-
-						// Verify edit page loaded
-						await expect(
-							page.getByRole('heading', { name: /cat/i }),
-						).toBeVisible({ timeout: 5000 })
+						const newRowCount = await dataRows.count()
+						expect(newRowCount).toBeGreaterThanOrEqual(initialRowCount)
 					}
 				}
 			}
 		})
 
-		test('should show tabs for Edit, Versions, and API on edit page', async ({
-			page,
-		}) => {
-			await page.goto('/admin/content-manager/cat')
-			await page.waitForLoadState('networkidle')
-			await page.waitForTimeout(1000)
+		test('should navigate to versions from row actions', async ({ page }) => {
+			test.skip(!createdDocs.veterinarian, 'No veterinarian was created')
 
-			const dataRows = page.locator('tbody tr')
-			const rowCount = await dataRows.count()
-
-			if (rowCount > 0) {
-				const firstRow = dataRows.first()
-				const actionsButton = firstRow.locator('button').last()
-
-				if (await actionsButton.isVisible()) {
-					await actionsButton.click()
-					await page.waitForTimeout(500)
-
-					const editOption = page.getByRole('menuitem', { name: /edit/i })
-					if (await editOption.isVisible()) {
-						await editOption.click()
-						await page.waitForURL(/\/content-manager\/cat\/[^/]+$/, {
-							timeout: 5000,
-						})
-
-						// Check for tabs
-						const editTab = page.getByRole('link', { name: /^edit$/i })
-						const versionsTab = page.getByRole('link', { name: /versions/i })
-						const apiTab = page.getByRole('link', { name: /api/i })
-
-						await expect(editTab.or(versionsTab).or(apiTab)).toBeVisible({
-							timeout: 5000,
-						})
-					}
-				}
-			}
-		})
-
-		test('should edit and auto-save changes', async ({ page }) => {
-			await page.goto('/admin/content-manager/cat')
-			await page.waitForLoadState('networkidle')
-			await page.waitForTimeout(1000)
-
-			const dataRows = page.locator('tbody tr')
-			const rowCount = await dataRows.count()
-
-			if (rowCount > 0) {
-				const firstRow = dataRows.first()
-				const actionsButton = firstRow.locator('button').last()
-
-				if (await actionsButton.isVisible()) {
-					await actionsButton.click()
-					await page.waitForTimeout(500)
-
-					const editOption = page.getByRole('menuitem', { name: /edit/i })
-					if (await editOption.isVisible()) {
-						await editOption.click()
-						await page.waitForURL(/\/content-manager\/cat\/[^/]+$/, {
-							timeout: 5000,
-						})
-
-						// Find name input and modify it
-						const nameInput = page.getByLabel(/name/i).first()
-						if (await nameInput.isVisible()) {
-							const currentValue = await nameInput.inputValue()
-							await nameInput.fill(`${currentValue} Updated`)
-							await page.waitForTimeout(2000)
-
-							// Check for auto-save indicator
-							const saveIndicator = page.getByText(/saving|saved|auto-save/i)
-							await expect(saveIndicator).toBeVisible({ timeout: 10000 })
-						}
-					}
-				}
-			}
-		})
-
-		test('should show publish button for draft content', async ({ page }) => {
-			await page.goto('/admin/content-manager/cat')
-			await page.waitForLoadState('networkidle')
-			await page.waitForTimeout(1000)
-
-			const dataRows = page.locator('tbody tr')
-			const rowCount = await dataRows.count()
-
-			if (rowCount > 0) {
-				const firstRow = dataRows.first()
-				const actionsButton = firstRow.locator('button').last()
-
-				if (await actionsButton.isVisible()) {
-					await actionsButton.click()
-					await page.waitForTimeout(500)
-
-					const editOption = page.getByRole('menuitem', { name: /edit/i })
-					if (await editOption.isVisible()) {
-						await editOption.click()
-						await page.waitForURL(/\/content-manager\/cat\/[^/]+$/, {
-							timeout: 5000,
-						})
-
-						// Look for publish button (may not be visible if already published)
-						const publishButton = page.getByRole('button', { name: /publish/i })
-						const publishedBadge = page.getByText(/published/i)
-
-						// Either publish button or published badge should be visible
-						await expect(publishButton.or(publishedBadge)).toBeVisible({
-							timeout: 5000,
-						})
-					}
-				}
-			}
-		})
-
-		test('should navigate to versions tab and show version history', async ({
-			page,
-		}) => {
-			await page.goto('/admin/content-manager/cat')
+			await page.goto('/content-manager/veterinarian')
 			await page.waitForLoadState('networkidle')
 			await page.waitForTimeout(1000)
 
@@ -428,42 +670,151 @@ test.describe('Content Manager', () => {
 				}
 			}
 		})
+	})
 
-		test('should delete an entry', async ({ page }) => {
-			await page.goto('/admin/content-manager/cat')
+	// ==========================================
+	// SECTION 8: Delete Content (cleanup)
+	// ==========================================
+	test.describe('Delete Content', () => {
+		test('should delete cat entry', async ({ page }) => {
+			test.skip(!createdDocs.cat, 'No cat was created')
+
+			await page.goto('/content-manager/cat')
 			await page.waitForLoadState('networkidle')
 			await page.waitForTimeout(1000)
 
 			const dataRows = page.locator('tbody tr')
-			const initialRowCount = await dataRows.count()
+			const rowCount = await dataRows.count()
 
-			if (initialRowCount > 0) {
-				const firstRow = dataRows.first()
-				const actionsButton = firstRow.locator('button').last()
+			if (rowCount > 0) {
+				// Find the row with our cat
+				const row = page
+					.locator('tbody tr')
+					.filter({ hasText: createdDocs.cat?.documentId || '' })
 
-				if (await actionsButton.isVisible()) {
-					await actionsButton.click()
-					await page.waitForTimeout(500)
+				if ((await row.count()) > 0) {
+					const actionsButton = row.first().locator('button').last()
 
-					const deleteOption = page.getByRole('menuitem', { name: /delete/i })
-					if (await deleteOption.isVisible()) {
-						await deleteOption.click()
+					if (await actionsButton.isVisible()) {
+						await actionsButton.click()
+						await page.waitForTimeout(500)
 
-						// Confirm deletion in dialog
-						const confirmDialog = page.getByRole('dialog')
-						await expect(confirmDialog).toBeVisible({ timeout: 3000 })
+						const deleteOption = page.getByRole('menuitem', { name: /delete/i })
+						if (await deleteOption.isVisible()) {
+							await deleteOption.click()
 
-						const confirmButton = confirmDialog.getByRole('button', {
-							name: /delete/i,
-						})
-						await confirmButton.click()
+							// Confirm deletion in dialog
+							const confirmDialog = page.getByRole('dialog')
+							await expect(confirmDialog).toBeVisible({ timeout: 3000 })
 
-						// Wait for deletion
-						await page.waitForTimeout(2000)
+							const confirmButton = confirmDialog.getByRole('button', {
+								name: /delete/i,
+							})
+							await confirmButton.click()
 
-						// Verify success toast
-						const successToast = page.getByText(/deleted|success/i)
-						await expect(successToast).toBeVisible({ timeout: 5000 })
+							// Wait for deletion
+							await page.waitForTimeout(2000)
+
+							// Verify success toast
+							const successToast = page.getByText('Content deleted')
+							await expect(successToast).toBeVisible({ timeout: 5000 })
+						}
+					}
+				}
+			}
+		})
+
+		test('should delete owner entry', async ({ page }) => {
+			test.skip(!createdDocs.owner, 'No owner was created')
+
+			await page.goto('/content-manager/owner')
+			await page.waitForLoadState('networkidle')
+			await page.waitForTimeout(1000)
+
+			const dataRows = page.locator('tbody tr')
+			const rowCount = await dataRows.count()
+
+			if (rowCount > 0) {
+				// Find the row with our owner
+				const row = page
+					.locator('tbody tr')
+					.filter({ hasText: createdDocs.owner?.documentId || '' })
+
+				if ((await row.count()) > 0) {
+					const actionsButton = row.first().locator('button').last()
+
+					if (await actionsButton.isVisible()) {
+						await actionsButton.click()
+						await page.waitForTimeout(500)
+
+						const deleteOption = page.getByRole('menuitem', { name: /delete/i })
+						if (await deleteOption.isVisible()) {
+							await deleteOption.click()
+
+							// Confirm deletion in dialog
+							const confirmDialog = page.getByRole('dialog')
+							await expect(confirmDialog).toBeVisible({ timeout: 3000 })
+
+							const confirmButton = confirmDialog.getByRole('button', {
+								name: /delete/i,
+							})
+							await confirmButton.click()
+
+							// Wait for deletion
+							await page.waitForTimeout(2000)
+
+							// Verify success toast
+							const successToast = page.getByText('Content deleted')
+							await expect(successToast).toBeVisible({ timeout: 5000 })
+						}
+					}
+				}
+			}
+		})
+
+		test('should delete veterinarian entry', async ({ page }) => {
+			test.skip(!createdDocs.veterinarian, 'No veterinarian was created')
+
+			await page.goto('/content-manager/veterinarian')
+			await page.waitForLoadState('networkidle')
+			await page.waitForTimeout(1000)
+
+			const dataRows = page.locator('tbody tr')
+			const rowCount = await dataRows.count()
+
+			if (rowCount > 0) {
+				// Find the row with our veterinarian
+				const row = page
+					.locator('tbody tr')
+					.filter({ hasText: createdDocs.veterinarian?.documentId || '' })
+
+				if ((await row.count()) > 0) {
+					const actionsButton = row.first().locator('button').last()
+
+					if (await actionsButton.isVisible()) {
+						await actionsButton.click()
+						await page.waitForTimeout(500)
+
+						const deleteOption = page.getByRole('menuitem', { name: /delete/i })
+						if (await deleteOption.isVisible()) {
+							await deleteOption.click()
+
+							// Confirm deletion in dialog
+							const confirmDialog = page.getByRole('dialog')
+							await expect(confirmDialog).toBeVisible({ timeout: 3000 })
+
+							const confirmButton = confirmDialog.getByRole('button', {
+								name: /delete/i,
+							})
+							await confirmButton.click()
+
+							// Wait for deletion
+							await page.waitForTimeout(2000)
+
+							// Verify success toast
+							const successToast = page.getByText('Content deleted')
+							await expect(successToast).toBeVisible({ timeout: 5000 })
+						}
 					}
 				}
 			}

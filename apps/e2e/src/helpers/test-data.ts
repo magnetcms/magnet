@@ -91,6 +91,27 @@ export const testData = {
 		},
 	},
 
+	veterinarian: {
+		create: (
+			overrides?: Partial<{
+				name: string
+				clinic: string
+				licenseNumber: string
+				specialization?: string
+			}>,
+		) => {
+			// License number must be 5-50 characters
+			const defaultLicense = `VET-${randomUUID().slice(0, 12).toUpperCase()}`
+
+			return {
+				name: overrides?.name ?? `Dr. ${randomUUID().slice(0, 8)}`,
+				clinic: overrides?.clinic ?? `Test Clinic ${randomUUID().slice(0, 6)}`,
+				licenseNumber: overrides?.licenseNumber ?? defaultLicense,
+				specialization: overrides?.specialization,
+			}
+		},
+	},
+
 	content: {
 		create: (
 			schema: string,
