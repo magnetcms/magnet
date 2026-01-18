@@ -1,5 +1,11 @@
 # @magnet-cms/adapter-supabase
 
+## 1.0.2
+
+### Patch Changes
+
+- [`a53ab67`](https://github.com/magnet-cms/magnet/commit/a53ab67185ea17af6f219b66d3c128a8ffd185f7) Thanks [@gjsoaresc](https://github.com/gjsoaresc)! - Fix workspace:\* protocol in peerDependencies and dependencies - npm does not support workspace: protocol
+
 ## 1.0.1
 
 ### Patch Changes

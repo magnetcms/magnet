@@ -1,5 +1,15 @@
 # @magnet-cms/plugin-content-builder
 
+## 1.0.2
+
+### Patch Changes
+
+- [`a53ab67`](https://github.com/magnet-cms/magnet/commit/a53ab67185ea17af6f219b66d3c128a8ffd185f7) Thanks [@gjsoaresc](https://github.com/gjsoaresc)! - Fix workspace:\* protocol in peerDependencies and dependencies - npm does not support workspace: protocol
+
+- Updated dependencies [[`a53ab67`](https://github.com/magnet-cms/magnet/commit/a53ab67185ea17af6f219b66d3c128a8ffd185f7)]:
+  - @magnet-cms/core@1.0.2
+  - @magnet-cms/admin@0.1.2
+
 ## 1.0.1
 
 ### Patch Changes
