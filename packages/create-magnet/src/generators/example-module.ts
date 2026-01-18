@@ -15,7 +15,7 @@ export class Item {
 	description?: string
 
 	@Prop({ required: false, default: true })
-	@UI({ tab: 'Settings', type: 'boolean', description: 'Is this item active?' })
+	@UI({ tab: 'Settings', type: 'switch', description: 'Is this item active?' })
 	isActive?: boolean
 }
 `
