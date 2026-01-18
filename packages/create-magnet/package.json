@@ -1,0 +1,60 @@
+{
+  "name": "create-magnet",
+  "version": "0.1.0",
+  "description": "Create a new Magnet CMS project",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "create-magnet": "./bin/create-magnet.js"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "build:dev": "tsup --watch",
+    "dev": "bun run src/index.ts",
+    "lint": "biome check .",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.5.0",
+    "ansis": "^3.17.0",
+    "commander": "^13.1.0",
+    "ora": "^8.2.0"
+  },
+  "devDependencies": {
+    "@repo/biome": "workspace:*",
+    "@repo/tsup": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.13.1"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "magnet",
+    "cms",
+    "nestjs",
+    "headless-cms",
+    "create",
+    "scaffold",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/magnet-cms/magnet.git",
+    "directory": "packages/create-magnet"
+  },
+  "license": "MIT"
+}
