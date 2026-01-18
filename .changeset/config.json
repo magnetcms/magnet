@@ -11,8 +11,9 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "auth-example",
-    "cats-example",
+    "magnet-template-mongoose-cats",
+    "magnet-template-drizzle-neon",
+    "magnet-template-drizzle-supabase",
     "@magnet-cms/e2e"
   ]
 }
