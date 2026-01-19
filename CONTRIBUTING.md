@@ -22,8 +22,9 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ### Suggesting Features
 
 1. **Check existing issues**: Search for similar feature requests
-2. **Create a new issue**: Use the feature request template
-3. **Provide context**:
+2. **Check the roadmap**: See if the feature is already planned in the [project roadmap](https://github.com/orgs/magnet-cms/projects/3)
+3. **Create a new issue**: Use the feature request template
+4. **Provide context**:
    - Clear description of the feature
    - Use case and motivation
    - Potential implementation approach (if you have ideas)
@@ -200,6 +201,59 @@ bun run lint
 # Type check all packages
 bun run check-types
 ```
+
+## Working on Roadmap Features
+
+We maintain a [public roadmap](https://github.com/orgs/magnet-cms/projects/3) that tracks planned features across four development phases. Contributing to roadmap items is a great way to make a significant impact on the project.
+
+### Roadmap Overview
+
+| Phase | Milestone | Focus Area |
+|-------|-----------|------------|
+| Phase 1 | v1.0 - Security & Access | RBAC, User Management, API Keys, Audit Logging |
+| Phase 2 | v1.1 - Integration & Automation | Webhooks, Scheduling, Event Hooks |
+| Phase 3 | v1.2 - Developer Experience | GraphQL, Search, Preview Mode |
+| Phase 4 | v1.3 - Team Collaboration | Workflows, Comments, Bulk Operations |
+
+### How to Pick Up a Roadmap Issue
+
+1. **Browse the roadmap**: Visit the [project board](https://github.com/orgs/magnet-cms/projects/3) to see available issues
+2. **Check issue labels**:
+   - `priority: critical` - Highest priority, needed ASAP
+   - `priority: high` - Important for the next release
+   - `priority: medium` - Should be done soon
+   - `priority: low` - Nice to have
+3. **Comment on the issue**: Let maintainers know you'd like to work on it
+4. **Wait for assignment**: A maintainer will assign the issue to you
+5. **Create a branch**: Use the format `feat/issue-number-short-description`
+6. **Follow the acceptance criteria**: Each issue includes detailed requirements
+
+### Issue Labels Reference
+
+**Phase Labels:**
+- `phase: 1-security` - Security & Access features
+- `phase: 2-integration` - Integration & Automation features
+- `phase: 3-dx` - Developer Experience features
+- `phase: 4-collaboration` - Team Collaboration features
+
+**Area Labels:**
+- `area: core` - Core package changes
+- `area: admin` - Admin UI changes
+- `area: api` - API endpoint changes
+- `area: auth` - Authentication/Authorization changes
+
+**Type Labels:**
+- `type: feature` - New feature implementation
+- `type: infrastructure` - Architecture/infrastructure work
+- `type: plugin` - Plugin development
+
+### Tips for Roadmap Contributions
+
+- **Start with smaller issues**: If you're new to the project, pick up a `priority: medium` or `priority: low` issue first
+- **Read related code**: Understand existing patterns before implementing new features
+- **Follow the checklist**: Each issue has acceptance criteria - make sure to complete all items
+- **Ask questions**: If something is unclear, comment on the issue before starting work
+- **Keep PRs focused**: If an issue is large, discuss breaking it into smaller PRs
 
 ## Documentation
 

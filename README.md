@@ -282,6 +282,21 @@ export class Cat {
 }
 ```
 
+## Roadmap
+
+We maintain a public roadmap to track upcoming features and improvements. The roadmap is organized into four phases:
+
+| Phase | Focus | Key Features |
+|-------|-------|--------------|
+| **v1.0** | Security & Access | RBAC, User Management, API Keys, Audit Logging |
+| **v1.1** | Integration & Automation | Webhooks, Scheduled Publishing, Event Hooks |
+| **v1.2** | Developer Experience | GraphQL API, Full-Text Search, Preview Mode |
+| **v1.3** | Team Collaboration | Approval Workflows, Comments, Bulk Operations |
+
+**[View Full Roadmap →](https://github.com/orgs/magnet-cms/projects/3)**
+
+Want to contribute to a roadmap feature? Check out our [Contributing Guide](CONTRIBUTING.md#working-on-roadmap-features) for details on how to get started.
+
 ## Documentation
 
 Documentation is available through:
