@@ -1,3 +1,5 @@
+import type { ResolvedPermissions } from './rbac.types'
+
 // ============================================================================
 // Auth User Types
 // ============================================================================
@@ -10,8 +12,15 @@ export interface AuthUser {
 	id: string
 	/** User email address */
 	email: string
-	/** User role for authorization */
-	role: string
+	/** Array of role IDs assigned to this user */
+	roles: string[]
+	/**
+	 * @deprecated Use `roles` instead. This field is kept for backward compatibility.
+	 * Will be removed in a future version.
+	 */
+	role?: string
+	/** Pre-resolved permissions for this user (optional, set by PermissionGuard) */
+	permissions?: ResolvedPermissions
 	/** Optional additional user data */
 	[key: string]: unknown
 }

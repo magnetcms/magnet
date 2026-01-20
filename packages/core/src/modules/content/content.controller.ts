@@ -10,12 +10,33 @@ import {
 	Post,
 	Put,
 	Query,
+	UseGuards,
 } from '@nestjs/common'
+import type { Request } from 'express'
+import { RequirePermission } from '~/decorators/require-permission.decorator'
 import { RestrictedRoute } from '~/decorators/restricted.route'
+import { JwtAuthGuard } from '~/modules/auth/guards/jwt-auth.guard'
+import { PermissionGuard } from '~/modules/rbac/guards/permission.guard'
 import { ContentService } from './content.service'
+
+/**
+ * Helper to extract schema from request params
+ * Used in @RequirePermission decorator
+ */
+const getSchemaFromRequest = (req: Request): string => {
+	const schema = req.params.schema
+	if (!schema) {
+		throw new HttpException(
+			'Schema parameter is required',
+			HttpStatus.BAD_REQUEST,
+		)
+	}
+	return schema
+}
 
 @Controller('content')
 @RestrictedRoute()
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class ContentController {
 	constructor(private readonly contentService: ContentService) {}
 
@@ -25,6 +46,7 @@ export class ContentController {
 	 * Query params: locale, status
 	 */
 	@Get(':schema')
+	@RequirePermission({ scope: 'read', resource: getSchemaFromRequest })
 	async list(
 		@Param('schema') schema: string,
 		@Query('locale') locale?: string,
@@ -46,6 +68,7 @@ export class ContentController {
 	 * Query params: locale, status
 	 */
 	@Get(':schema/:documentId')
+	@RequirePermission({ scope: 'read', resource: getSchemaFromRequest })
 	async get(
 		@Param('schema') schema: string,
 		@Param('documentId') documentId: string,
@@ -78,6 +101,7 @@ export class ContentController {
 	 * Returns: { documentId: string }
 	 */
 	@Post(':schema/new')
+	@RequirePermission({ scope: 'create', resource: getSchemaFromRequest })
 	async createEmpty(
 		@Param('schema') schema: string,
 		@Body() body?: {
@@ -111,6 +135,7 @@ export class ContentController {
 	 * Body: { data, locale?, createdBy? }
 	 */
 	@Post(':schema')
+	@RequirePermission({ scope: 'create', resource: getSchemaFromRequest })
 	async create(
 		@Param('schema') schema: string,
 		@Body() body: {
@@ -141,6 +166,11 @@ export class ContentController {
 	 * Body: { data, updatedBy? }
 	 */
 	@Put(':schema/:documentId')
+	@RequirePermission({
+		scope: 'update',
+		resource: getSchemaFromRequest,
+		checkOwnership: true,
+	})
 	async update(
 		@Param('schema') schema: string,
 		@Param('documentId') documentId: string,
@@ -179,6 +209,7 @@ export class ContentController {
 	 * DELETE /content/:schema/:documentId
 	 */
 	@Delete(':schema/:documentId')
+	@RequirePermission({ scope: 'delete', resource: getSchemaFromRequest })
 	async delete(
 		@Param('schema') schema: string,
 		@Param('documentId') documentId: string,
@@ -204,6 +235,7 @@ export class ContentController {
 	 * Query params: locale
 	 */
 	@Post(':schema/:documentId/publish')
+	@RequirePermission({ scope: 'publish', resource: getSchemaFromRequest })
 	async publish(
 		@Param('schema') schema: string,
 		@Param('documentId') documentId: string,
@@ -238,6 +270,7 @@ export class ContentController {
 	 * Query params: locale
 	 */
 	@Post(':schema/:documentId/unpublish')
+	@RequirePermission({ scope: 'publish', resource: getSchemaFromRequest })
 	async unpublish(
 		@Param('schema') schema: string,
 		@Param('documentId') documentId: string,
@@ -264,6 +297,7 @@ export class ContentController {
 	 * Body: { locale, data, createdBy? }
 	 */
 	@Post(':schema/:documentId/locale')
+	@RequirePermission({ scope: 'create', resource: getSchemaFromRequest })
 	async addLocale(
 		@Param('schema') schema: string,
 		@Param('documentId') documentId: string,
@@ -298,6 +332,7 @@ export class ContentController {
 	 * DELETE /content/:schema/:documentId/locale/:locale
 	 */
 	@Delete(':schema/:documentId/locale/:locale')
+	@RequirePermission({ scope: 'delete', resource: getSchemaFromRequest })
 	async deleteLocale(
 		@Param('schema') schema: string,
 		@Param('documentId') documentId: string,
@@ -323,6 +358,7 @@ export class ContentController {
 	 * GET /content/:schema/:documentId/locales
 	 */
 	@Get(':schema/:documentId/locales')
+	@RequirePermission({ scope: 'read', resource: getSchemaFromRequest })
 	async getLocaleStatuses(
 		@Param('schema') schema: string,
 		@Param('documentId') documentId: string,
@@ -345,6 +381,7 @@ export class ContentController {
 	 * Query params: locale
 	 */
 	@Get(':schema/:documentId/versions')
+	@RequirePermission({ scope: 'read', resource: getSchemaFromRequest })
 	async getVersions(
 		@Param('schema') schema: string,
 		@Param('documentId') documentId: string,
@@ -366,6 +403,7 @@ export class ContentController {
 	 * Query params: locale, version
 	 */
 	@Post(':schema/:documentId/restore')
+	@RequirePermission({ scope: 'update', resource: getSchemaFromRequest })
 	async restoreVersion(
 		@Param('schema') schema: string,
 		@Param('documentId') documentId: string,

@@ -32,6 +32,8 @@ export type UIBase = {
 	type?: UITypes
 	row?: boolean
 	collapsible?: boolean
+	hidden?: boolean
+	readonly?: boolean
 }
 
 export type UISelectItem = {
@@ -79,6 +81,7 @@ export type UITable = UIBase & {
 }
 
 export type UIDecoratorOptions =
+	| UIBase
 	| UITab
 	| UISide
 	| UISelect

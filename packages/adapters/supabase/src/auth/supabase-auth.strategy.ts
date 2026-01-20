@@ -96,11 +96,13 @@ export class SupabaseAuthStrategy extends AuthStrategy {
 			return null
 		}
 
+		const role =
+			userData.user.user_metadata?.role || this.config.defaultRole || 'user'
 		return {
 			id: userData.user.id,
 			email: userData.user.email || '',
-			role:
-				userData.user.user_metadata?.role || this.config.defaultRole || 'user',
+			role,
+			roles: userData.user.user_metadata?.roles || [role],
 			name: userData.user.user_metadata?.name,
 		}
 	}
@@ -153,11 +155,13 @@ export class SupabaseAuthStrategy extends AuthStrategy {
 			throw new Error('Registration failed: no user returned')
 		}
 
+		const role =
+			authData.user.user_metadata?.role || this.config.defaultRole || 'user'
 		return {
 			id: authData.user.id,
 			email: authData.user.email || '',
-			role:
-				authData.user.user_metadata?.role || this.config.defaultRole || 'user',
+			role,
+			roles: authData.user.user_metadata?.roles || [role],
 			name: authData.user.user_metadata?.name,
 		}
 	}
@@ -178,10 +182,13 @@ export class SupabaseAuthStrategy extends AuthStrategy {
 			return null
 		}
 
+		const role =
+			data.user.user_metadata?.role || this.config.defaultRole || 'user'
 		return {
 			id: data.user.id,
 			email: data.user.email || '',
-			role: data.user.user_metadata?.role || this.config.defaultRole || 'user',
+			role,
+			roles: data.user.user_metadata?.roles || [role],
 			name: data.user.user_metadata?.name,
 		}
 	}
@@ -266,11 +273,15 @@ export class SupabaseAuthStrategy extends AuthStrategy {
 			throw new Error(`Failed to list users: ${error.message}`)
 		}
 
-		return (data?.users || []).map((user) => ({
-			id: user.id,
-			email: user.email || '',
-			role: user.user_metadata?.role || this.config.defaultRole || 'user',
-			name: user.user_metadata?.name,
-		}))
+		return (data?.users || []).map((user) => {
+			const role = user.user_metadata?.role || this.config.defaultRole || 'user'
+			return {
+				id: user.id,
+				email: user.email || '',
+				role,
+				roles: user.user_metadata?.roles || [role],
+				name: user.user_metadata?.name,
+			}
+		})
 	}
 }

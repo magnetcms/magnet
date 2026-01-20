@@ -354,6 +354,108 @@ export class ApiClient {
 		})
 	}
 
+	// RBAC endpoints
+	async getRoles() {
+		return this.request.get(`${this.baseURL}/rbac/roles`, {
+			headers: this.getHeaders(),
+		})
+	}
+
+	async getRole(id: string) {
+		return this.request.get(`${this.baseURL}/rbac/roles/${id}`, {
+			headers: this.getHeaders(),
+		})
+	}
+
+	async createRole(data: {
+		name: string
+		displayName: string
+		description?: string
+		permissions?: string[]
+		inheritsFrom?: string[]
+		priority?: number
+	}) {
+		return this.request.post(`${this.baseURL}/rbac/roles`, {
+			headers: this.getHeaders(),
+			data,
+		})
+	}
+
+	async updateRole(
+		id: string,
+		data: {
+			displayName?: string
+			description?: string
+			permissions?: string[]
+			inheritsFrom?: string[]
+			priority?: number
+		},
+	) {
+		return this.request.put(`${this.baseURL}/rbac/roles/${id}`, {
+			headers: this.getHeaders(),
+			data,
+		})
+	}
+
+	async deleteRole(id: string) {
+		return this.request.delete(`${this.baseURL}/rbac/roles/${id}`, {
+			headers: this.getHeaders(),
+		})
+	}
+
+	async getPermissions() {
+		return this.request.get(`${this.baseURL}/rbac/permissions`, {
+			headers: this.getHeaders(),
+		})
+	}
+
+	async getPermission(id: string) {
+		return this.request.get(`${this.baseURL}/rbac/permissions/${id}`, {
+			headers: this.getHeaders(),
+		})
+	}
+
+	async createPermission(data: {
+		name: string
+		displayName: string
+		description?: string
+		scope: string
+		resource: { type: string; target?: string }
+	}) {
+		return this.request.post(`${this.baseURL}/rbac/permissions`, {
+			headers: this.getHeaders(),
+			data,
+		})
+	}
+
+	async deletePermission(id: string) {
+		return this.request.delete(`${this.baseURL}/rbac/permissions/${id}`, {
+			headers: this.getHeaders(),
+		})
+	}
+
+	async getMyPermissions() {
+		return this.request.get(`${this.baseURL}/rbac/me/permissions`, {
+			headers: this.getHeaders(),
+		})
+	}
+
+	async getUserPermissions(userId: string) {
+		return this.request.get(
+			`${this.baseURL}/rbac/users/${userId}/permissions`,
+			{
+				headers: this.getHeaders(),
+			},
+		)
+	}
+
+	async assignUserRoles(userId: string, roleIds: string[]) {
+		return this.request.put(`${this.baseURL}/rbac/users/${userId}/roles`, {
+			headers: this.getHeaders(),
+			data: { roleIds },
+		})
+	}
+
 	// Content CRUD endpoints
 	async listContent(
 		schema: string,

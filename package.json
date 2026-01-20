@@ -31,7 +31,7 @@
   "packageManager": "bun@1.2.2",
   "workspaces": [
     "apps/*",
-    "apps/templates/**/*",
+    "apps/examples/**/*",
     "packages/**/*"
   ],
   "lint-staged": {

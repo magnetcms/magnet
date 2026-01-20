@@ -86,7 +86,9 @@ export interface LoginCredentials {
 
 export interface RegisterCredentials extends LoginCredentials {
 	name: string
-	role: string
+	/** @deprecated Use roleIds instead */
+	role?: string
+	roleIds?: string[]
 }
 
 export interface AuthTokens {
@@ -99,12 +101,104 @@ export interface AuthUser {
 	id: string
 	email: string
 	name: string
-	role: string
+	/** Array of role IDs assigned to the user */
+	roles: string[]
+	/** @deprecated Use roles instead */
+	role?: string
+	/** Pre-resolved permissions (optional) */
+	permissions?: ResolvedPermissions
 }
 
 export interface AuthStatus {
 	authenticated: boolean
 	requiresSetup: boolean
+	message: string
+}
+
+// ============================================================================
+// RBAC Types
+// ============================================================================
+
+export type PermissionScope =
+	| 'create'
+	| 'read'
+	| 'update'
+	| 'delete'
+	| 'publish'
+export type PermissionLevel = 'global' | 'schema' | 'field' | 'record'
+
+export interface FieldPermission {
+	visible: boolean
+	readonly: boolean
+}
+
+export interface RecordPermission {
+	scope: PermissionScope
+	condition: {
+		field: string
+		operator: 'equals' | 'in' | 'contains'
+		value: string
+	}
+}
+
+export interface ResolvedPermissions {
+	global: PermissionScope[]
+	schemas: Record<string, PermissionScope[]>
+	fields: Record<string, Record<string, FieldPermission>>
+	records: Record<string, RecordPermission[]>
+	roleIds: string[]
+	roleNames: string[]
+}
+
+export interface Permission {
+	id: string
+	name: string
+	displayName: string
+	description?: string
+	scope: PermissionScope
+	resource: {
+		type: PermissionLevel
+		target?: string
+		fields?: string[]
+		conditions?: Array<{
+			field: string
+			operator: 'equals' | 'in' | 'contains'
+			value: string
+		}>
+	}
+	isSystem: boolean
+}
+
+export interface Role {
+	id: string
+	name: string
+	displayName: string
+	description?: string
+	permissions: string[]
+	inheritsFrom?: string[]
+	isSystem: boolean
+	priority: number
+}
+
+export interface CreateRoleData {
+	name: string
+	displayName: string
+	description?: string
+	permissions?: string[]
+	inheritsFrom?: string[]
+	priority?: number
+}
+
+export interface UpdateRoleData {
+	displayName?: string
+	description?: string
+	permissions?: string[]
+	inheritsFrom?: string[]
+	priority?: number
+}
+
+export interface RbacStatus {
+	initialized: boolean
 	message: string
 }
 
@@ -329,6 +423,38 @@ export interface MagnetApiAdapter {
 		getStats(): Promise<MediaStats>
 		getUrl(id: string, transform?: TransformOptions): string
 		getFileUrl(id: string, transform?: TransformOptions): string
+	}
+
+	/**
+	 * RBAC (Role-Based Access Control) operations
+	 */
+	rbac: {
+		/** Get RBAC system status */
+		getStatus(): Promise<RbacStatus>
+
+		/** Role operations */
+		getRoles(): Promise<Role[]>
+		getRole(id: string): Promise<Role>
+		createRole(data: CreateRoleData): Promise<Role>
+		updateRole(id: string, data: UpdateRoleData): Promise<Role>
+		deleteRole(id: string): Promise<{ success: boolean }>
+		getRolePermissions(roleId: string): Promise<Permission[]>
+		assignPermissionsToRole(
+			roleId: string,
+			permissionIds: string[],
+		): Promise<Role>
+		removePermissionsFromRole(
+			roleId: string,
+			permissionIds: string[],
+		): Promise<Role>
+
+		/** Permission operations */
+		getPermissions(): Promise<Permission[]>
+		getPermission(id: string): Promise<Permission>
+
+		/** User permission operations */
+		getMyPermissions(): Promise<ResolvedPermissions>
+		getUserPermissions(userId: string): Promise<ResolvedPermissions>
 	}
 }
 

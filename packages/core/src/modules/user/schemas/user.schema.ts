@@ -1,6 +1,7 @@
 import { Prop, Schema, UI, Validators } from '@magnet-cms/common'
 import { hash } from 'bcryptjs'
 import {
+	IsArray,
 	IsEmail,
 	IsNotEmpty,
 	IsOptional,
@@ -24,20 +25,28 @@ export class User {
 	@UI({ tab: 'General', row: true })
 	name!: string
 
+	/**
+	 * Array of role IDs assigned to this user (many-to-many relationship)
+	 * References Role documents from the RBAC module
+	 */
+	@Prop({ required: false, default: [], ref: 'Role' })
+	@Validators(IsArray(), IsOptional())
+	@UI({
+		tab: 'Roles',
+		type: 'relationship',
+	})
+	roles!: string[]
+
+	/**
+	 * @deprecated Legacy single role field - kept for migration compatibility
+	 * This field will be removed in a future version. Use `roles` instead.
+	 */
 	@Prop({ required: false })
 	@Validators(IsString(), IsOptional())
-	@UI({
-		tab: 'General',
-		type: 'select',
-		options: [
-			{ key: 'admin', value: 'Admin' },
-			{ key: 'editor', value: 'Editor' },
-			{ key: 'viewer', value: 'Viewer' },
-		],
-	})
+	@UI({ hidden: true })
 	role?: string
 
-	async hashPassword() {
+	async hashPassword(): Promise<void> {
 		this.password = await hash(this.password, 10)
 	}
 }

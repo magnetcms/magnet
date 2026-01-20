@@ -234,19 +234,36 @@ export const useAuth = () => {
 
 	const logout = useLogout()
 
-	// Check if user has specific role
+	// Check if user has specific role by name or ID
+	// Supports both new `roles` array (role IDs) and legacy `role` string (role name)
 	const hasRole = useCallback(
-		(role: string | string[]) => {
+		(roleNameOrId: string | string[]) => {
 			if (!user) return false
 
-			if (Array.isArray(role)) {
-				return role.includes(user.role)
+			const rolesToCheck = Array.isArray(roleNameOrId)
+				? roleNameOrId
+				: [roleNameOrId]
+
+			// Check against new roles array (role IDs)
+			if (user.roles && user.roles.length > 0) {
+				return rolesToCheck.some((r) => user.roles.includes(r))
 			}
 
-			return user.role === role
+			// Fallback to legacy role field (role name)
+			if (user.role) {
+				return rolesToCheck.includes(user.role)
+			}
+
+			return false
 		},
 		[user],
 	)
+
+	// Get user's role IDs
+	const roleIds = user?.roles ?? []
+
+	// Check if user has any roles assigned
+	const hasAnyRole = roleIds.length > 0 || !!user?.role
 
 	return {
 		user,
@@ -255,6 +272,8 @@ export const useAuth = () => {
 		error,
 		isAuthenticated: !!user,
 		hasRole,
+		hasAnyRole,
+		roleIds,
 		logout,
 		refreshToken: () => refreshToken(),
 	}

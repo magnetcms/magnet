@@ -48,7 +48,9 @@ export class JwtAuthStrategy
 	 * Also satisfies the AuthStrategy.validate() interface.
 	 */
 	async validate(
-		payload: { sub: string; email: string; role: string } | unknown,
+		payload:
+			| { sub: string; email: string; role?: string; roles?: string[] }
+			| unknown,
 	): Promise<AuthUser | null> {
 		// Handle JWT payload format
 		if (
@@ -57,11 +59,18 @@ export class JwtAuthStrategy
 			'sub' in payload &&
 			'email' in payload
 		) {
-			const jwtPayload = payload as { sub: string; email: string; role: string }
+			const jwtPayload = payload as {
+				sub: string
+				email: string
+				role?: string
+				roles?: string[]
+			}
+			const role = jwtPayload.role || 'viewer'
 			return {
 				id: jwtPayload.sub,
 				email: jwtPayload.email,
-				role: jwtPayload.role || 'viewer',
+				role,
+				roles: jwtPayload.roles || [role],
 			}
 		}
 		return null
@@ -80,10 +89,18 @@ export class JwtAuthStrategy
 		const isPasswordValid = await compare(password, user.password)
 		if (!isPasswordValid) return null
 
+		const role = user.role || 'viewer'
+		const userData = user as { roles?: string[] }
 		return {
-			id: (user as any).id || (user as any)._id?.toString(),
+			id:
+				(user as { id?: string; _id?: { toString(): string } }).id ||
+				(
+					user as { id?: string; _id?: { toString(): string } }
+				)._id?.toString() ||
+				'',
 			email: user.email,
-			role: user.role || 'viewer',
+			role,
+			roles: userData.roles || [role],
 		}
 	}
 
@@ -99,7 +116,12 @@ export class JwtAuthStrategy
 			throw new UnauthorizedException('Invalid credentials')
 		}
 
-		const payload = { sub: user.id, email: user.email, role: user.role }
+		const payload = {
+			sub: user.id,
+			email: user.email,
+			role: user.role,
+			roles: user.roles,
+		}
 		const token = sign(payload, this.secret, { expiresIn: this.expiresIn })
 
 		return {
@@ -125,10 +147,18 @@ export class JwtAuthStrategy
 			role: data.role || 'viewer',
 		})
 
+		const role = newUser.role || 'viewer'
+		const newUserData = newUser as { roles?: string[] }
 		return {
-			id: (newUser as any).id || (newUser as any)._id?.toString(),
+			id:
+				(newUser as { id?: string; _id?: { toString(): string } }).id ||
+				(
+					newUser as { id?: string; _id?: { toString(): string } }
+				)._id?.toString() ||
+				'',
 			email: newUser.email,
-			role: newUser.role || 'viewer',
+			role,
+			roles: newUserData.roles || [role],
 		}
 	}
 

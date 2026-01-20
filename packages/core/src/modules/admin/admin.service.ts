@@ -120,7 +120,7 @@ export class AdminService {
 	/**
 	 * Serve static file from admin dist (production only)
 	 */
-	serveStaticFile(req: Request, res: Response) {
+	serveStaticFile(req: Request, res: Response): void {
 		// Remove /admin prefix from path
 		let filePath = req.path.replace(/^\/admin\/?/, '') || 'index.html'
 
@@ -129,14 +129,44 @@ export class AdminService {
 			filePath = 'index.html'
 		}
 
-		const fullPath = join(this.adminDistPath, filePath)
+		// Use resolve() to ensure proper absolute path with platform-correct separators
+		const fullPath = resolve(this.adminDistPath, filePath)
+
+		// Use sendFile with root option for better cross-platform compatibility
+		const sendFileOptions = { root: this.adminDistPath }
+
+		const sendFileWithErrorHandling = (relativePath: string): void => {
+			res.sendFile(relativePath, sendFileOptions, (err) => {
+				if (err) {
+					this.logger.error(
+						`Failed to serve file: ${relativePath} from ${this.adminDistPath}`,
+						err,
+					)
+					// Try serving index.html as fallback for SPA routing
+					if (relativePath !== 'index.html') {
+						res.sendFile('index.html', sendFileOptions, (fallbackErr) => {
+							if (fallbackErr) {
+								this.logger.error(
+									'Failed to serve index.html fallback',
+									fallbackErr,
+								)
+								res.status(404).send('Admin panel file not found')
+							}
+						})
+					} else {
+						res.status(404).send('Admin panel not found')
+					}
+				}
+			})
+		}
 
 		if (existsSync(fullPath)) {
-			return res.sendFile(fullPath)
+			sendFileWithErrorHandling(filePath)
+			return
 		}
 
 		// Fallback to index.html for SPA routing
-		return res.sendFile(join(this.adminDistPath, 'index.html'))
+		sendFileWithErrorHandling('index.html')
 	}
 
 	async getInitialConfig(): Promise<InitialConfig> {

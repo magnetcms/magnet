@@ -12,6 +12,7 @@ import { EnvironmentModule } from './modules/environment/environment.module'
 import { HealthModule } from './modules/health/health.module'
 import { HistoryModule } from './modules/history/history.module'
 import { PluginModule } from './modules/plugin/plugin.module'
+import { RbacModule } from './modules/rbac/rbac.module'
 import { SettingsModule } from './modules/settings/settings.module'
 import { StorageModule } from './modules/storage/storage.module'
 import { initOptions } from './utils'
@@ -41,6 +42,7 @@ export class MagnetModule {
 				HistoryModule,
 				HealthModule,
 				PluginModule.forRoot({ plugins }),
+				RbacModule.forRoot(),
 				SettingsModule,
 				StorageModuleConfig,
 			],
@@ -56,10 +58,11 @@ export class MagnetModule {
 				DiscoveryModule,
 				DBModule,
 				DocumentModule,
-				SettingsModule,
 				HistoryModule,
 				HealthModule,
 				PluginModule,
+				RbacModule,
+				SettingsModule,
 				StorageModuleConfig,
 			],
 		}
