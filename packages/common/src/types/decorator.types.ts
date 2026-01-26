@@ -7,19 +7,34 @@ export type ResolverOptions = {
 export type ResolverInput = (() => Type) | ResolverOptions
 
 export type ResolveOptions = {
-	type: Type | [Type]
+	type: Type | Type[]
 	isArray?: boolean
 	description?: string
 }
 
-export type ResolveInput = (() => Type | [Type]) | ResolveOptions
+export type ResolveInput =
+	| (() => Type | Type[])
+	| (() => Type)[]
+	| ResolveOptions
+
+/**
+ * Property default value - can be a primitive, object, array, or factory function
+ */
+export type PropDefaultValue =
+	| string
+	| number
+	| boolean
+	| null
+	| Record<string, unknown>
+	| unknown[]
+	| (() => unknown)
 
 export type PropOptions = {
-	type?: Type | [Type] | any
+	type?: Type | Type[]
 	description?: string
 	required?: boolean
 	unique?: boolean
-	default?: any
+	default?: PropDefaultValue
 	nullable?: boolean
 	intl?: boolean
 	hidden?: boolean

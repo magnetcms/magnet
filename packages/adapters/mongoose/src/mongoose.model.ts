@@ -1,14 +1,18 @@
 import { randomBytes } from 'node:crypto'
 import {
 	BaseSchema,
+	DocumentNotFoundError,
 	Model,
 	ModelCreateOptions,
 	ModelUpdateOptions,
-	ValidationException,
+	type VersionDocument,
+	fromMongooseError,
+	isCastError,
+	isVersionDocument,
 } from '@magnet-cms/common'
 import { Document, Model as MongooseModel } from 'mongoose'
 import { MongooseQueryBuilder } from '~/mongoose.query-builder'
-import { isMongoServerError, mapDocumentId, mapQueryId } from '~/utils'
+import { mapDocumentId, mapQueryId } from '~/utils'
 
 /**
  * Generate a cryptographically secure random document ID
@@ -123,27 +127,31 @@ export function createModel<T>(
 		 * Find all versions of a document
 		 * @param documentId The document ID
 		 */
-		async findVersions(documentId: string): Promise<any[]> {
+		async findVersions(documentId: string): Promise<VersionDocument[]> {
 			const versionModel = await this.getVersionModel()
 			if (!versionModel) return []
 
-			return versionModel
+			const results = await versionModel
 				.find({
 					documentId,
 					schemaName: this.model.modelName,
 				})
 				.lean()
+
+			return (results as unknown[]).filter(isVersionDocument)
 		}
 
 		/**
 		 * Find a specific version by ID
 		 * @param versionId The version ID
 		 */
-		async findVersionById(versionId: string): Promise<any | null> {
+		async findVersionById(versionId: string): Promise<VersionDocument | null> {
 			const versionModel = await this.getVersionModel()
 			if (!versionModel) return null
 
-			return versionModel.findOne({ versionId }).lean()
+			const result = await versionModel.findOne({ versionId }).lean()
+			if (!result || !isVersionDocument(result)) return null
+			return result
 		}
 
 		/**
@@ -155,12 +163,12 @@ export function createModel<T>(
 			if (!versionModel) return null
 
 			// Find the version
-			const version = await versionModel.findOne({ versionId }).lean()
+			const version = await this.findVersionById(versionId)
 			if (!version) return null
 			// Update the document with the version data
 			return this.update(
-				{ id: (version as any).documentId } as Partial<BaseSchema<T>>,
-				(version as any).data,
+				{ id: version.documentId } as Partial<BaseSchema<T>>,
+				version.data as Partial<BaseSchema<T>>,
 			)
 		}
 
@@ -172,9 +180,9 @@ export function createModel<T>(
 		 */
 		async createVersion(
 			documentId: string,
-			data: any,
+			data: Partial<BaseSchema<T>>,
 			status: 'draft' | 'published' | 'archived' = 'draft',
-		): Promise<any | null> {
+		): Promise<VersionDocument | null> {
 			const versionModel = await this.getVersionModel()
 			if (!versionModel) return null
 
@@ -182,7 +190,7 @@ export function createModel<T>(
 			const versionId = `${documentId}_${Date.now()}`
 
 			// Create the version
-			return versionModel.create({
+			const created = await versionModel.create({
 				documentId,
 				versionId,
 				schemaName: this.model.modelName,
@@ -190,6 +198,10 @@ export function createModel<T>(
 				data,
 				createdAt: new Date(),
 			})
+
+			const result = created.toObject()
+			if (!isVersionDocument(result)) return null
+			return result
 		}
 
 		async create(
@@ -198,16 +210,17 @@ export function createModel<T>(
 		): Promise<BaseSchema<T>> {
 			try {
 				// Check if schema has documentId field (i18n enabled)
-				const hasDocumentId = this.model.schema.paths.documentId !== undefined
+				const hasDocumentIdField =
+					this.model.schema.paths.documentId !== undefined
 
 				// Generate documentId if not provided and schema requires it
-				const createData = { ...data } as any
-				if (hasDocumentId && !createData.documentId) {
+				const createData: Record<string, unknown> = { ...data }
+				if (hasDocumentIdField && !createData.documentId) {
 					createData.documentId = generateDocumentId()
 				}
 
 				// Ensure locale and status have defaults if schema requires them
-				if (hasDocumentId) {
+				if (hasDocumentIdField) {
 					if (!createData.locale) {
 						createData.locale = this.currentLocale || 'en'
 					}
@@ -216,7 +229,7 @@ export function createModel<T>(
 					}
 				}
 
-				let createdDoc: any
+				let createdDoc: { toObject(): unknown }
 
 				if (options?.skipValidation) {
 					// Create document without validation (for drafts)
@@ -235,35 +248,12 @@ export function createModel<T>(
 				}
 
 				return this.applyLocale(mappedDoc) as BaseSchema<T>
-			} catch (error: any) {
-				// Handle MongoDB duplicate key errors
-				if (isMongoServerError(error)) {
-					const property = Object.keys(error.keyPattern)[0] ?? 'unknown'
-
-					throw new ValidationException([
-						{
-							property,
-							constraints: {
-								[property]: `${property} already exists`,
-							},
-						},
-					])
-				}
-
-				// Handle Mongoose validation errors
-				if (error.name === 'ValidationError' && error.errors) {
-					const validationErrors = Object.entries(error.errors).map(
-						([property, err]: [string, any]) => ({
-							property,
-							constraints: {
-								[err.kind || 'validation']: err.message,
-							},
-						}),
-					)
-					throw new ValidationException(validationErrors)
-				}
-
-				throw error
+			} catch (error: unknown) {
+				// Convert Mongoose errors to typed MagnetErrors
+				throw fromMongooseError(error, {
+					schema: this.model.modelName,
+					operation: 'create',
+				})
 			}
 		}
 
@@ -276,38 +266,42 @@ export function createModel<T>(
 					if (!versionModel) return []
 
 					// Find all documents with the requested status
-					const versions = await versionModel
+					const rawVersions = await versionModel
 						.find({
 							schemaName: this.model.modelName,
 							status: this.currentVersion,
 						})
 						.lean()
 
-					// Group by documentId and get the latest version for each
-					const latestVersions = versions.reduce(
-						(acc: Record<string, any>, version: any) => {
-							if (
-								!acc[version.documentId] ||
-								new Date(version.createdAt) >
-									new Date(acc[version.documentId].createdAt)
-							) {
-								acc[version.documentId] = version
-							}
-							return acc
-						},
-						{},
-					)
+					// Filter to valid version documents and group by documentId
+					const validVersions: VersionDocument[] = []
+					for (const v of rawVersions) {
+						if (isVersionDocument(v)) {
+							validVersions.push(v)
+						}
+					}
+
+					const latestVersions: Record<string, VersionDocument> = {}
+					for (const version of validVersions) {
+						const existing = latestVersions[version.documentId]
+						if (
+							!existing ||
+							new Date(version.createdAt) > new Date(existing.createdAt)
+						) {
+							latestVersions[version.documentId] = version
+						}
+					}
 
 					// Return the data from each latest version
-					return Object.values(latestVersions).map((version: any) =>
-						this.applyLocale(version.data),
-					) as BaseSchema<T>[]
+					return Object.values(latestVersions).map((version) =>
+						this.applyLocale(version.data as BaseSchema<T>),
+					)
 				}
 
 				// If it's a specific version ID
 				const version = await this.findVersionById(this.currentVersion)
 				if (version) {
-					return [this.applyLocale(version.data)] as BaseSchema<T>[]
+					return [this.applyLocale(version.data as BaseSchema<T>)]
 				}
 
 				return []
@@ -328,7 +322,7 @@ export function createModel<T>(
 					if (!versionModel) return null
 
 					// Find the latest version with the requested status
-					const versions = await versionModel
+					const rawVersions = await versionModel
 						.find({
 							documentId: id,
 							schemaName: this.model.modelName,
@@ -338,8 +332,11 @@ export function createModel<T>(
 						.limit(1)
 						.lean()
 
-					if (versions.length > 0) {
-						return this.applyLocale((versions[0] as any).data) as BaseSchema<T>
+					if (rawVersions.length > 0) {
+						const version = rawVersions[0]
+						if (isVersionDocument(version)) {
+							return this.applyLocale(version.data as BaseSchema<T>)
+						}
 					}
 
 					return null
@@ -348,7 +345,7 @@ export function createModel<T>(
 				// If it's a specific version ID
 				const version = await this.findVersionById(this.currentVersion)
 				if (version && version.documentId === id) {
-					return this.applyLocale(version.data) as BaseSchema<T>
+					return this.applyLocale(version.data as BaseSchema<T>)
 				}
 
 				return null
@@ -357,7 +354,7 @@ export function createModel<T>(
 			// Normal findById operation
 			const result = await this.model.findById(id).lean()
 			if (!result) return null
-			const mappedResult = mapDocumentId(result)
+			const mappedResult = mapDocumentId<T>(result)
 			return this.applyLocale(mappedResult) as BaseSchema<T>
 		}
 
@@ -379,7 +376,7 @@ export function createModel<T>(
 					if (!docId) return null
 
 					// Find the latest version with the requested status
-					const versions = await versionModel
+					const rawVersions = await versionModel
 						.find({
 							documentId: docId,
 							schemaName: this.model.modelName,
@@ -389,8 +386,11 @@ export function createModel<T>(
 						.limit(1)
 						.lean()
 
-					if (versions.length > 0) {
-						return this.applyLocale((versions[0] as any).data) as BaseSchema<T>
+					if (rawVersions.length > 0) {
+						const version = rawVersions[0]
+						if (isVersionDocument(version)) {
+							return this.applyLocale(version.data as BaseSchema<T>)
+						}
 					}
 
 					return null
@@ -400,23 +400,24 @@ export function createModel<T>(
 				const version = await this.findVersionById(this.currentVersion)
 				if (version) {
 					// Check if the version data matches the query
-					const versionData = (version as any).data
+					const versionData = version.data as Record<string, unknown>
 					let matches = true
 
 					for (const key in query) {
-						if (key === 'id' && query[key] !== (version as any).documentId) {
+						if (key === 'id' && query[key] !== version.documentId) {
 							matches = false
 							break
 						}
 
-						if (key !== 'id' && versionData[key] !== (query as any)[key]) {
+						const queryValue = query[key as keyof typeof query]
+						if (key !== 'id' && versionData[key] !== queryValue) {
 							matches = false
 							break
 						}
 					}
 
 					if (matches) {
-						return this.applyLocale(versionData) as BaseSchema<T>
+						return this.applyLocale(versionData as BaseSchema<T>)
 					}
 				}
 
@@ -427,11 +428,11 @@ export function createModel<T>(
 			try {
 				const result = await this.model.findOne(mapQueryId(query)).lean()
 				if (!result) return null
-				const mappedResult = mapDocumentId(result)
+				const mappedResult = mapDocumentId<T>(result)
 				return this.applyLocale(mappedResult) as BaseSchema<T>
-			} catch (error: any) {
+			} catch (error: unknown) {
 				// Handle CastError when trying to find by id with non-ObjectId value
-				if (error.name === 'CastError' && error.path === '_id') {
+				if (isCastError(error) && error.path === '_id') {
 					return null
 				}
 				throw error
@@ -450,10 +451,12 @@ export function createModel<T>(
 					const docs = await this.model.find(mapQueryId(query)).lean()
 					if (docs.length === 0) return []
 
-					const docIds = docs.map((doc) => doc._id?.toString()).filter(Boolean)
+					const docIds = docs
+						.map((doc) => doc._id?.toString())
+						.filter((id): id is string => Boolean(id))
 
 					// Find all versions with the requested status for these documents
-					const versions = await versionModel
+					const rawVersions = await versionModel
 						.find({
 							documentId: { $in: docIds },
 							schemaName: this.model.modelName,
@@ -461,48 +464,53 @@ export function createModel<T>(
 						})
 						.lean()
 
-					// Group by documentId and get the latest version for each
-					const latestVersions = versions.reduce(
-						(acc: Record<string, any>, version: any) => {
-							if (
-								!acc[version.documentId] ||
-								new Date(version.createdAt) >
-									new Date(acc[version.documentId].createdAt)
-							) {
-								acc[version.documentId] = version
-							}
-							return acc
-						},
-						{},
-					)
+					// Filter to valid version documents and group by documentId
+					const validVersions: VersionDocument[] = []
+					for (const v of rawVersions) {
+						if (isVersionDocument(v)) {
+							validVersions.push(v)
+						}
+					}
+
+					const latestVersions: Record<string, VersionDocument> = {}
+					for (const version of validVersions) {
+						const existing = latestVersions[version.documentId]
+						if (
+							!existing ||
+							new Date(version.createdAt) > new Date(existing.createdAt)
+						) {
+							latestVersions[version.documentId] = version
+						}
+					}
 
 					// Return the data from each latest version
-					return Object.values(latestVersions).map((version: any) =>
-						this.applyLocale(version.data),
-					) as BaseSchema<T>[]
+					return Object.values(latestVersions).map((version) =>
+						this.applyLocale(version.data as BaseSchema<T>),
+					)
 				}
 
 				// If it's a specific version ID
 				const version = await this.findVersionById(this.currentVersion)
 				if (version) {
 					// Check if the version data matches the query
-					const versionData = (version as any).data
+					const versionData = version.data as Record<string, unknown>
 					let matches = true
 
 					for (const key in query) {
-						if (key === 'id' && query[key] !== (version as any).documentId) {
+						if (key === 'id' && query[key] !== version.documentId) {
 							matches = false
 							break
 						}
 
-						if (key !== 'id' && versionData[key] !== (query as any)[key]) {
+						const queryValue = query[key as keyof typeof query]
+						if (key !== 'id' && versionData[key] !== queryValue) {
 							matches = false
 							break
 						}
 					}
 
 					if (matches) {
-						return [this.applyLocale(versionData)] as BaseSchema<T>[]
+						return [this.applyLocale(versionData as BaseSchema<T>)]
 					}
 				}
 
@@ -514,9 +522,9 @@ export function createModel<T>(
 				const results = await this.model.find(mapQueryId(query)).lean()
 				const mappedResults = results.map((result) => mapDocumentId<T>(result))
 				return this.applyLocale(mappedResults) as BaseSchema<T>[]
-			} catch (error: any) {
+			} catch (error: unknown) {
 				// Handle CastError when trying to find by id with non-ObjectId value
-				if (error.name === 'CastError' && error.path === '_id') {
+				if (isCastError(error) && error.path === '_id') {
 					return []
 				}
 				throw error
@@ -535,10 +543,18 @@ export function createModel<T>(
 			if (this.isVersioningEnabled() && this.currentVersion === 'draft') {
 				// Find the document first
 				const doc = await this.model.findOne(mongooseQuery).lean()
-				if (!doc) throw new Error('Document not found')
+				if (!doc) {
+					throw new DocumentNotFoundError(this.model.modelName, 'unknown', {
+						operation: 'update',
+					})
+				}
 
 				const docId = doc._id?.toString()
-				if (!docId) throw new Error('Document ID not found')
+				if (!docId) {
+					throw new DocumentNotFoundError(this.model.modelName, 'unknown', {
+						operation: 'update',
+					})
+				}
 
 				// Create a draft version with the updated data
 				const updatedData = { ...mapDocumentId(doc), ...data }
@@ -551,7 +567,11 @@ export function createModel<T>(
 			// Handle update with skipValidation option
 			if (options?.skipValidation) {
 				const doc = await this.model.findOne(mongooseQuery)
-				if (!doc) throw new Error('Document not found')
+				if (!doc) {
+					throw new DocumentNotFoundError(this.model.modelName, 'unknown', {
+						operation: 'update',
+					})
+				}
 
 				// Update fields manually
 				Object.assign(doc, mongooseData)
@@ -566,9 +586,13 @@ export function createModel<T>(
 				.findOneAndUpdate(mongooseQuery, mongooseData, { new: true })
 				.lean()
 
-			if (!result) throw new Error('Document not found')
+			if (!result) {
+				throw new DocumentNotFoundError(this.model.modelName, 'unknown', {
+					operation: 'update',
+				})
+			}
 
-			const mappedResult = mapDocumentId(result)
+			const mappedResult = mapDocumentId<T>(result)
 
 			// If versioning is enabled, create a version
 			if (this.isVersioningEnabled()) {

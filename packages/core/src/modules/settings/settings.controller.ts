@@ -1,3 +1,4 @@
+import type { SettingValue, SettingsRecord } from '@magnet-cms/common'
 import {
 	Body,
 	Controller,
@@ -41,15 +42,17 @@ export class SettingsController {
 	@Put(':group')
 	async updateSettingsByGroup(
 		@Param('group') _group: string,
-		@Body() data: Record<string, any>,
+		@Body() data: SettingsRecord,
 	) {
 		try {
-			const results: Record<string, any> = {}
+			const results: SettingsRecord = {}
 
 			// Update each setting in the group
 			for (const [key, value] of Object.entries(data)) {
 				const updated = await this.settingsService.updateSetting(key, value)
-				results[key] = updated
+				if (updated) {
+					results[key] = updated.value
+				}
 			}
 
 			return results
@@ -65,7 +68,7 @@ export class SettingsController {
 	async updateSetting(
 		@Param('group') _group: string,
 		@Param('key') key: string,
-		@Body('value') value: any,
+		@Body('value') value: SettingValue,
 	) {
 		try {
 			return await this.settingsService.updateSetting(key, value)

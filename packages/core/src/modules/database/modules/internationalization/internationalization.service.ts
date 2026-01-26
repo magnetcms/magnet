@@ -20,7 +20,11 @@ export class InternationalizationService implements OnModuleInit {
 
 			// Find the locales setting
 			const localesSetting = settings.find((s) => s.key === 'locales')
-			if (localesSetting && Array.isArray(localesSetting.value)) {
+			if (
+				localesSetting &&
+				Array.isArray(localesSetting.value) &&
+				localesSetting.value.every((v) => typeof v === 'string')
+			) {
 				this.locales = localesSetting.value
 			}
 

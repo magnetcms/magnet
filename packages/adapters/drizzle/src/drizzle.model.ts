@@ -1,9 +1,12 @@
 import {
 	BaseSchema,
+	DatabaseError,
+	DocumentNotFoundError,
 	Model,
 	ModelCreateOptions,
 	ModelUpdateOptions,
-	ValidationException,
+	type VersionDocument,
+	fromDrizzleError,
 } from '@magnet-cms/common'
 import { toCamelCase } from '@magnet-cms/utils'
 import type { Type } from '@nestjs/common'
@@ -13,6 +16,31 @@ import type { PgTable } from 'drizzle-orm/pg-core'
 import { DrizzleQueryBuilder } from './drizzle.query-builder'
 import { DEFAULT_LOCALE, DOCUMENT_STATUS } from './schema/document.plugin'
 import type { DrizzleDB } from './types'
+
+/**
+ * Type for dynamic table with columns accessible by string keys.
+ * This is needed because Drizzle tables are accessed dynamically.
+ *
+ * Note: We use `any` for column values because Drizzle's type system
+ * doesn't support dynamic column access - this is a library limitation.
+ * @see https://orm.drizzle.team/docs/dynamic-query-building
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DynamicTable = PgTable & Record<string, any>
+
+/**
+ * Type for database row from query results
+ */
+type DatabaseRow = Record<string, unknown>
+
+/**
+ * Drizzle-orm has internal type conflicts where SQL types from different
+ * import paths are incompatible ("Two different types with this name exist").
+ * This type alias documents the workaround using any for SQL conditions.
+ * @see https://github.com/drizzle-team/drizzle-orm/issues/1510
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DrizzleCondition = any
 
 /**
  * Create a Drizzle Model class for a schema.
@@ -72,15 +100,15 @@ export function createModel<T>(
 			options?: ModelCreateOptions,
 		): Promise<BaseSchema<T>> {
 			try {
-				const tableAny = this._table as any
+				const dynamicTable = this._table as DynamicTable
 
 				// Prepare insert data
-				const insertData: Record<string, any> = {
+				const insertData: Record<string, unknown> = {
 					...this._prepareData(data),
 				}
 
 				// Add document fields if table has them
-				if ('documentId' in tableAny) {
+				if ('documentId' in dynamicTable) {
 					insertData.documentId =
 						insertData.documentId || sql`gen_random_uuid()`
 					insertData.locale =
@@ -88,33 +116,41 @@ export function createModel<T>(
 					insertData.status = insertData.status || DOCUMENT_STATUS.DRAFT
 				}
 
-				const result = await (this._db as any)
+				const result = (await (this._db as DrizzleDB & { insert: Function })
 					.insert(this._table)
 					.values(insertData)
-					.returning()
+					.returning()) as DatabaseRow[]
 
 				if (!result || result.length === 0) {
-					throw new Error('Insert failed - no result returned')
-				}
-
-				return this._mapResult(result[0])
-			} catch (error: any) {
-				// Handle PostgreSQL unique constraint violations
-				if (error.code === '23505') {
-					const match = error.detail?.match(/Key \((.+?)\)/)
-					const property = match ? match[1] : 'unknown'
-
-					throw new ValidationException([
+					throw new DatabaseError(
+						'Insert failed - no result returned',
+						undefined,
 						{
-							property,
-							constraints: {
-								[property]: `${property} already exists`,
-							},
+							schema: this._schemaClass.name,
+							operation: 'create',
 						},
-					])
+					)
 				}
 
-				throw error
+				const firstResult = result[0]
+				if (!firstResult) {
+					throw new DatabaseError(
+						'Insert failed - no result returned',
+						undefined,
+						{
+							schema: this._schemaClass.name,
+							operation: 'create',
+						},
+					)
+				}
+
+				return this._mapResult(firstResult)
+			} catch (error: unknown) {
+				// Convert Drizzle/PostgreSQL errors to typed MagnetErrors
+				throw fromDrizzleError(error, {
+					schema: this._schemaClass.name,
+					operation: 'create',
+				})
 			}
 		}
 
@@ -122,56 +158,70 @@ export function createModel<T>(
 		 * Find all documents
 		 */
 		async find(): Promise<BaseSchema<T>[]> {
-			const tableAny = this._table as any
-			let query = (this._db as any).select().from(this._table)
+			const dynamicTable = this._table as DynamicTable
+			const dbWithSelect = this._db as DrizzleDB & { select: Function }
+			const conditions: DrizzleCondition[] = []
 
 			// Apply locale filter if set and table supports it
-			if (this.currentLocale && 'locale' in tableAny) {
-				query = query.where(eq(tableAny.locale, this.currentLocale))
+			if (this.currentLocale && 'locale' in dynamicTable) {
+				conditions.push(eq(dynamicTable.locale, this.currentLocale))
 			}
 
 			// Apply version/status filter if set
-			if (this.currentVersion && 'status' in tableAny) {
+			if (this.currentVersion && 'status' in dynamicTable) {
 				if (['draft', 'published', 'archived'].includes(this.currentVersion)) {
-					query = query.where(eq(tableAny.status, this.currentVersion))
+					conditions.push(eq(dynamicTable.status, this.currentVersion))
 				}
 			}
 
-			const results = await query
+			const query = dbWithSelect.select().from(this._table)
+			const whereCondition: DrizzleCondition =
+				conditions.length > 0 ? and(...conditions) : undefined
 
-			return results.map((row: any) => this._mapResult(row))
+			const results = (await (whereCondition
+				? query.where(whereCondition)
+				: query)) as DatabaseRow[]
+
+			return results.map((row) => this._mapResult(row))
 		}
 
 		/**
 		 * Find a document by ID
 		 */
 		async findById(id: string): Promise<BaseSchema<T> | null> {
-			const tableAny = this._table as any
-			const conditions = [eq(tableAny.id, id)]
+			const dynamicTable = this._table as DynamicTable
+			const dbWithSelect = this._db as DrizzleDB & { select: Function }
+			const conditions: DrizzleCondition[] = [eq(dynamicTable.id, id)]
 
 			// Apply locale filter if set
-			if (this.currentLocale && 'locale' in tableAny) {
-				conditions.push(eq(tableAny.locale, this.currentLocale))
+			if (this.currentLocale && 'locale' in dynamicTable) {
+				conditions.push(eq(dynamicTable.locale, this.currentLocale))
 			}
 
 			// Apply version/status filter if set
-			if (this.currentVersion && 'status' in tableAny) {
+			if (this.currentVersion && 'status' in dynamicTable) {
 				if (['draft', 'published', 'archived'].includes(this.currentVersion)) {
-					conditions.push(eq(tableAny.status, this.currentVersion))
+					conditions.push(eq(dynamicTable.status, this.currentVersion))
 				}
 			}
 
-			const results = await (this._db as any)
+			const whereCondition: DrizzleCondition = and(...conditions)
+			const results = (await dbWithSelect
 				.select()
 				.from(this._table)
-				.where(and(...conditions))
-				.limit(1)
+				.where(whereCondition)
+				.limit(1)) as DatabaseRow[]
 
 			if (!results || results.length === 0) {
 				return null
 			}
 
-			return this._mapResult(results[0])
+			const firstResult = results[0]
+			if (!firstResult) {
+				return null
+			}
+
+			return this._mapResult(firstResult)
 		}
 
 		/**
@@ -180,59 +230,70 @@ export function createModel<T>(
 		async findOne(
 			query: Partial<BaseSchema<T>>,
 		): Promise<BaseSchema<T> | null> {
-			const tableAny = this._table as any
-			const conditions = this._buildConditions(query)
+			const dynamicTable = this._table as DynamicTable
+			const dbWithSelect = this._db as DrizzleDB & { select: Function }
+			const conditions: DrizzleCondition[] = this._buildConditions(query)
 
 			// Apply locale filter if set
-			if (this.currentLocale && 'locale' in tableAny) {
-				conditions.push(eq(tableAny.locale, this.currentLocale))
+			if (this.currentLocale && 'locale' in dynamicTable) {
+				conditions.push(eq(dynamicTable.locale, this.currentLocale))
 			}
 
 			// Apply version/status filter if set
-			if (this.currentVersion && 'status' in tableAny) {
+			if (this.currentVersion && 'status' in dynamicTable) {
 				if (['draft', 'published', 'archived'].includes(this.currentVersion)) {
-					conditions.push(eq(tableAny.status, this.currentVersion))
+					conditions.push(eq(dynamicTable.status, this.currentVersion))
 				}
 			}
 
-			const results = await (this._db as any)
+			const whereCondition: DrizzleCondition =
+				conditions.length > 0 ? and(...conditions) : undefined
+			const results = (await dbWithSelect
 				.select()
 				.from(this._table)
-				.where(conditions.length > 0 ? and(...conditions) : undefined)
-				.limit(1)
+				.where(whereCondition)
+				.limit(1)) as DatabaseRow[]
 
 			if (!results || results.length === 0) {
 				return null
 			}
 
-			return this._mapResult(results[0])
+			const firstResult = results[0]
+			if (!firstResult) {
+				return null
+			}
+
+			return this._mapResult(firstResult)
 		}
 
 		/**
 		 * Find multiple documents matching the query
 		 */
 		async findMany(query: Partial<BaseSchema<T>>): Promise<BaseSchema<T>[]> {
-			const tableAny = this._table as any
-			const conditions = this._buildConditions(query)
+			const dynamicTable = this._table as DynamicTable
+			const dbWithSelect = this._db as DrizzleDB & { select: Function }
+			const conditions: DrizzleCondition[] = this._buildConditions(query)
 
 			// Apply locale filter if set
-			if (this.currentLocale && 'locale' in tableAny) {
-				conditions.push(eq(tableAny.locale, this.currentLocale))
+			if (this.currentLocale && 'locale' in dynamicTable) {
+				conditions.push(eq(dynamicTable.locale, this.currentLocale))
 			}
 
 			// Apply version/status filter if set
-			if (this.currentVersion && 'status' in tableAny) {
+			if (this.currentVersion && 'status' in dynamicTable) {
 				if (['draft', 'published', 'archived'].includes(this.currentVersion)) {
-					conditions.push(eq(tableAny.status, this.currentVersion))
+					conditions.push(eq(dynamicTable.status, this.currentVersion))
 				}
 			}
 
-			const results = await (this._db as any)
+			const whereCondition: DrizzleCondition =
+				conditions.length > 0 ? and(...conditions) : undefined
+			const results = (await dbWithSelect
 				.select()
 				.from(this._table)
-				.where(conditions.length > 0 ? and(...conditions) : undefined)
+				.where(whereCondition)) as DatabaseRow[]
 
-			return results.map((row: any) => this._mapResult(row))
+			return results.map((row) => this._mapResult(row))
 		}
 
 		/**
@@ -243,7 +304,8 @@ export function createModel<T>(
 			data: Partial<BaseSchema<T>>,
 			options?: ModelUpdateOptions,
 		): Promise<BaseSchema<T>> {
-			const conditions = this._buildConditions(query)
+			const conditions: DrizzleCondition[] = this._buildConditions(query)
+			const dbWithUpdate = this._db as DrizzleDB & { update: Function }
 
 			if (conditions.length === 0) {
 				throw new Error('Update requires at least one condition')
@@ -252,33 +314,45 @@ export function createModel<T>(
 			const updateData = this._prepareData(data)
 			updateData.updatedAt = new Date()
 
-			const results = await (this._db as any)
+			const whereCondition: DrizzleCondition = and(...conditions)
+			const results = (await dbWithUpdate
 				.update(this._table)
 				.set(updateData)
-				.where(and(...conditions))
-				.returning()
+				.where(whereCondition)
+				.returning()) as DatabaseRow[]
 
 			if (!results || results.length === 0) {
-				throw new Error('Document not found')
+				throw new DocumentNotFoundError(this._schemaClass.name, 'unknown', {
+					operation: 'update',
+				})
 			}
 
-			return this._mapResult(results[0])
+			const firstResult = results[0]
+			if (!firstResult) {
+				throw new DocumentNotFoundError(this._schemaClass.name, 'unknown', {
+					operation: 'update',
+				})
+			}
+
+			return this._mapResult(firstResult)
 		}
 
 		/**
 		 * Delete a document
 		 */
 		async delete(query: Partial<BaseSchema<T>>): Promise<boolean> {
-			const conditions = this._buildConditions(query)
+			const conditions: DrizzleCondition[] = this._buildConditions(query)
+			const dbWithDelete = this._db as DrizzleDB & { delete: Function }
 
 			if (conditions.length === 0) {
 				throw new Error('Delete requires at least one condition')
 			}
 
-			const results = await (this._db as any)
+			const whereCondition: DrizzleCondition = and(...conditions)
+			const results = (await dbWithDelete
 				.delete(this._table)
-				.where(and(...conditions))
-				.returning()
+				.where(whereCondition)
+				.returning()) as DatabaseRow[]
 
 			return results && results.length > 0
 		}
@@ -286,7 +360,7 @@ export function createModel<T>(
 		/**
 		 * Find all versions of a document
 		 */
-		async findVersions(documentId: string): Promise<any[]> {
+		async findVersions(documentId: string): Promise<VersionDocument[]> {
 			// Versions are managed by HistoryService in core
 			return []
 		}
@@ -294,7 +368,7 @@ export function createModel<T>(
 		/**
 		 * Find a specific version by ID
 		 */
-		async findVersionById(versionId: string): Promise<any | null> {
+		async findVersionById(versionId: string): Promise<VersionDocument | null> {
 			// Versions are managed by HistoryService in core
 			return null
 		}
@@ -330,14 +404,14 @@ export function createModel<T>(
 		 * Build conditions array from a query object
 		 * @internal
 		 */
-		_buildConditions(query: Partial<BaseSchema<T>>): any[] {
-			const tableAny = this._table as any
-			const conditions: any[] = []
+		_buildConditions(query: Partial<BaseSchema<T>>): DrizzleCondition[] {
+			const dynamicTable = this._table as DynamicTable
+			const conditions: DrizzleCondition[] = []
 
 			for (const [key, value] of Object.entries(query)) {
 				// Try camelCase first (matches table column definitions)
-				if (key in tableAny) {
-					conditions.push(eq(tableAny[key], value))
+				if (key in dynamicTable) {
+					conditions.push(eq(dynamicTable[key], value))
 				}
 			}
 
@@ -348,8 +422,8 @@ export function createModel<T>(
 		 * Map a database row to a result with camelCase keys
 		 * @internal
 		 */
-		_mapResult(row: any): BaseSchema<T> {
-			const result: Record<string, any> = {}
+		_mapResult(row: DatabaseRow): BaseSchema<T> {
+			const result: Record<string, unknown> = {}
 
 			for (const [key, value] of Object.entries(row)) {
 				const camelKey = toCamelCase(key)
@@ -393,8 +467,8 @@ export function createModel<T>(
 		 * For JSONB columns (arrays/objects), ensure values are properly formatted
 		 * @internal
 		 */
-		_prepareData(data: Record<string, any>): Record<string, any> {
-			const result: Record<string, any> = {}
+		_prepareData(data: Record<string, unknown>): Record<string, unknown> {
+			const result: Record<string, unknown> = {}
 
 			for (const [key, value] of Object.entries(data)) {
 				if (key === 'id') continue // Skip id, it's auto-generated

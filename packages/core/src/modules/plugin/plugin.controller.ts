@@ -1,3 +1,4 @@
+import type { EnrichedPluginManifest } from '@magnet-cms/common'
 import { Controller, Get, Param } from '@nestjs/common'
 import { RestrictedRoute } from '~/decorators/restricted.route'
 import { PluginRegistryService } from './plugin-registry.service'
@@ -22,7 +23,7 @@ export class PluginController {
 	 * GET /plugins/manifests
 	 */
 	@Get('manifests')
-	getFrontendManifests() {
+	getFrontendManifests(): EnrichedPluginManifest[] {
 		return this.registry.getFrontendManifests()
 	}
 

@@ -1,4 +1,5 @@
 import { DynamicModule, Type } from '@nestjs/common'
+import type { Model } from '../model'
 import { MagnetModuleOptions } from './config.types'
 
 export type MongooseConfig = {
@@ -22,9 +23,25 @@ export type DrizzleConfig = {
 
 export type DBConfig = MongooseConfig | DrizzleConfig
 
+/**
+ * Database model instance type - the native model from the adapter
+ * This could be a Mongoose Model, Drizzle table, or other adapter-specific type
+ */
+export type DatabaseModelInstance = unknown
+
+/**
+ * Model class constructor returned by adapter.model()
+ */
+export type ModelClass<T> = new () => Model<T>
+
 export abstract class DatabaseAdapter {
 	abstract connect(options: MagnetModuleOptions): DynamicModule
 	abstract forFeature(schemas: Type | Type[]): DynamicModule
-	abstract model<T>(modelInstance: any): any
+	/**
+	 * Create a Model class for the given native model instance
+	 * @param modelInstance - The native model instance from the database driver
+	 * @returns A Model class constructor that can be instantiated
+	 */
+	abstract model<T>(modelInstance: DatabaseModelInstance): ModelClass<T>
 	abstract token(schema: string): string
 }

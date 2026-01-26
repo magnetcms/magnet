@@ -9,6 +9,7 @@ import { ContentModule } from './modules/content/content.module'
 import { DatabaseModule } from './modules/database/database.module'
 import { DocumentModule } from './modules/document/document.module'
 import { EnvironmentModule } from './modules/environment/environment.module'
+import { EventsModule } from './modules/events/events.module'
 import { HealthModule } from './modules/health/health.module'
 import { HistoryModule } from './modules/history/history.module'
 import { PluginModule } from './modules/plugin/plugin.module'
@@ -38,6 +39,7 @@ export class MagnetModule {
 				DiscoveryModule,
 				DocumentModule,
 				EnvironmentModule,
+				EventsModule,
 				HistoryModule,
 				HealthModule,
 				PluginModule.forRoot({ plugins }),

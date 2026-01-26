@@ -60,7 +60,7 @@ export class MagnetModuleOptions {
 
 export type MagnetModuleOptionsAsync = {
 	useFactory: (
-		...args: any[]
+		...args: unknown[]
 	) => Promise<MagnetModuleOptions> | MagnetModuleOptions
 	inject?: Type[]
 	imports?: Type[]

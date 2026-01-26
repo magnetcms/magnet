@@ -15,7 +15,7 @@ export function Resolve(optionsOrFn: ResolveInput): MethodDecorator {
 				throw new Error('@Resolve array input must only contain functions.')
 			}
 			resolvedOptions = {
-				type: optionsOrFn.map((fn) => fn()) as any,
+				type: optionsOrFn.map((fn) => fn()),
 				isArray: true,
 			}
 		} else {

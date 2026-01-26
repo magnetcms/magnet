@@ -1,3 +1,4 @@
+import type { AuthResult } from '@magnet-cms/common'
 import {
 	Body,
 	Controller,
@@ -25,7 +26,7 @@ export class AuthController {
 	constructor(private authService: AuthService) {}
 
 	@Post('register')
-	async register(@Body() registerDto: RegisterDTO) {
+	async register(@Body() registerDto: RegisterDTO): Promise<AuthResult> {
 		await this.authService.register(registerDto)
 		return this.authService.login({
 			email: registerDto.email,
@@ -34,7 +35,9 @@ export class AuthController {
 	}
 
 	@Post('login')
-	async login(@Body() body: { email: string; password: string }) {
+	async login(
+		@Body() body: { email: string; password: string },
+	): Promise<AuthResult> {
 		return this.authService.login(body)
 	}
 

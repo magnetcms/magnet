@@ -161,7 +161,7 @@ test.describe('Authentication UI', () => {
 
 			const dashboard = new DashboardPage(page)
 			// Logout button should be accessible via user menu
-			await expect(dashboard.userMenu).toBeVisible()
+			await expect(dashboard.userMenuButton).toBeVisible()
 		})
 
 		test('logout clears session and redirects to login', async ({

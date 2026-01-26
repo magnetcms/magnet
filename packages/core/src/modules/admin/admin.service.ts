@@ -144,8 +144,10 @@ export class AdminService {
 		const settings = this.discoveryService.getAllDiscoveredSettingsSchemas()
 		const overview = await this.settingsService.getSettingsByGroup('overview')
 
-		const title = overview.find((setting) => setting.key === 'title')?.value
-		const description = overview.find(
+		const titleValue = overview.find(
+			(setting) => setting.key === 'title',
+		)?.value
+		const descriptionValue = overview.find(
 			(setting) => setting.key === 'description',
 		)?.value
 
@@ -153,8 +155,9 @@ export class AdminService {
 			process.env.NODE_ENV === 'production' ? 'production' : 'development'
 
 		return {
-			title,
-			description,
+			title: typeof titleValue === 'string' ? titleValue : undefined,
+			description:
+				typeof descriptionValue === 'string' ? descriptionValue : undefined,
 			env,
 			schemas,
 			settings,

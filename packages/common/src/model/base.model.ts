@@ -12,6 +12,24 @@ export interface ModelUpdateOptions {
 	skipValidation?: boolean
 }
 
+/**
+ * Version document type for history/versioning
+ */
+export interface VersionDocument {
+	/** ID of the original document */
+	documentId: string
+	/** Unique version identifier */
+	versionId: string
+	/** Name of the schema/collection */
+	schemaName: string
+	/** Version status */
+	status: 'draft' | 'published' | 'archived'
+	/** Snapshot of the document data at this version */
+	data: Record<string, unknown>
+	/** When this version was created */
+	createdAt: Date
+}
+
 export abstract class Model<Schema> {
 	abstract create(
 		data: Partial<BaseSchema<Schema>>,
@@ -51,7 +69,7 @@ export abstract class Model<Schema> {
 	 * Find all versions of a document
 	 * @param documentId The document ID
 	 */
-	findVersions(documentId: string): Promise<any[]> {
+	findVersions(documentId: string): Promise<VersionDocument[]> {
 		// This is a base implementation that will be overridden by adapters
 		return Promise.resolve([])
 	}
@@ -60,7 +78,7 @@ export abstract class Model<Schema> {
 	 * Find a specific version by ID
 	 * @param versionId The version ID
 	 */
-	findVersionById(versionId: string): Promise<any | null> {
+	findVersionById(versionId: string): Promise<VersionDocument | null> {
 		// This is a base implementation that will be overridden by adapters
 		return Promise.resolve(null)
 	}

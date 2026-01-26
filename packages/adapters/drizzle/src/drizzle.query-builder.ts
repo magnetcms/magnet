@@ -30,6 +30,39 @@ import type { PgTable } from 'drizzle-orm/pg-core'
 import type { DrizzleDB } from './types'
 
 /**
+ * Type for dynamic table with columns accessible by string keys.
+ * Note: We use `any` for column references because Drizzle's type system
+ * doesn't support dynamic column access - this is a library limitation.
+ * @see https://orm.drizzle.team/docs/dynamic-query-building
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DynamicTableColumn = any
+
+/**
+ * Type for dynamic table with columns accessible by string keys
+ */
+type DynamicTable = PgTable & Record<string, DynamicTableColumn>
+
+/**
+ * Type for database row from query results
+ */
+type DatabaseRow = Record<string, unknown>
+
+/**
+ * Type for Drizzle column reference (used for dynamic column access)
+ */
+type DrizzleColumn = DynamicTableColumn
+
+/**
+ * Drizzle-orm has internal type conflicts where SQL types from different
+ * import paths are incompatible ("Two different types with this name exist").
+ * This type alias documents the workaround using any for SQL conditions.
+ * @see https://github.com/drizzle-team/drizzle-orm/issues/1510
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DrizzleCondition = any
+
+/**
  * Drizzle implementation of QueryBuilder for fluent database queries.
  * Provides chainable methods for filtering, sorting, pagination, and projection.
  *
@@ -44,8 +77,8 @@ import type { DrizzleDB } from './types'
  * ```
  */
 export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
-	private filterConditions: any[] = []
-	private sortSpecs: { column: any; direction: 'asc' | 'desc' }[] = []
+	private filterConditions: DrizzleCondition[] = []
+	private sortSpecs: { column: DrizzleColumn; direction: 'asc' | 'desc' }[] = []
 	private selectedColumns: string[] = []
 	private limitValue?: number
 	private skipValue?: number
@@ -102,11 +135,11 @@ export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
 	 * Values can be 1 (asc), -1 (desc), 'asc', or 'desc'.
 	 */
 	sort(sort: SortQuery<T>): this {
-		const tableAny = this.table as any
+		const dynamicTable = this.table as DynamicTable
 
 		for (const [key, direction] of Object.entries(sort)) {
 			const snakeKey = toSnakeCase(key)
-			const column = tableAny[snakeKey] || tableAny[key]
+			const column = dynamicTable[snakeKey] || dynamicTable[key]
 
 			if (column) {
 				const dir = direction === -1 || direction === 'desc' ? 'desc' : 'asc'
@@ -165,49 +198,54 @@ export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
 	 * Execute the query and return all matching documents
 	 */
 	async exec(): Promise<BaseSchema<T>[]> {
-		const tableAny = this.table as any
+		const dynamicTable = this.table as DynamicTable
+		const dbWithSelect = this.db as DrizzleDB & { select: Function }
 
-		// Build the base query
-		let query = (this.db as any).select().from(this.table)
+		// Build the base query with $dynamic() to enable query reassignment
+		const query = dbWithSelect.select().from(this.table).$dynamic()
 
 		// Apply locale filter if set
-		if (this.currentLocale && 'locale' in tableAny) {
-			this.filterConditions.push(eq(tableAny.locale, this.currentLocale))
+		if (this.currentLocale && 'locale' in dynamicTable) {
+			this.filterConditions.push(eq(dynamicTable.locale, this.currentLocale))
 		}
 
 		// Apply version/status filter if set
-		if (this.currentVersion && 'status' in tableAny) {
+		if (this.currentVersion && 'status' in dynamicTable) {
 			if (['draft', 'published', 'archived'].includes(this.currentVersion)) {
-				this.filterConditions.push(eq(tableAny.status, this.currentVersion))
+				this.filterConditions.push(eq(dynamicTable.status, this.currentVersion))
 			}
 		}
 
-		// Apply filters
-		if (this.filterConditions.length > 0) {
-			query = query.where(and(...this.filterConditions))
+		// Apply filters - filter out undefined conditions
+		const validConditions = this.filterConditions.filter(
+			(c): c is NonNullable<typeof c> => c !== undefined,
+		)
+		if (validConditions.length > 0) {
+			const whereCondition: DrizzleCondition = and(...validConditions)
+			query.where(whereCondition)
 		}
 
 		// Apply sorting
 		if (this.sortSpecs.length > 0) {
-			const orderBy = this.sortSpecs.map((s) =>
+			const orderBy: DrizzleCondition[] = this.sortSpecs.map((s) =>
 				s.direction === 'desc' ? desc(s.column) : asc(s.column),
 			)
-			query = query.orderBy(...orderBy)
+			query.orderBy(...orderBy)
 		}
 
 		// Apply limit
 		if (this.limitValue !== undefined) {
-			query = query.limit(this.limitValue)
+			query.limit(this.limitValue)
 		}
 
 		// Apply offset
 		if (this.skipValue !== undefined) {
-			query = query.offset(this.skipValue)
+			query.offset(this.skipValue)
 		}
 
-		const results = await query
+		const results = (await query) as DatabaseRow[]
 
-		return results.map((row: any) => this.mapResult(row))
+		return results.map((row) => this.mapResult(row))
 	}
 
 	/**
@@ -223,30 +261,35 @@ export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
 	 * Count matching documents without fetching them
 	 */
 	async count(): Promise<number> {
-		const tableAny = this.table as any
+		const dynamicTable = this.table as DynamicTable
+		const dbWithSelect = this.db as DrizzleDB & { select: Function }
 
-		let query = (this.db as any)
-			.select({ count: sql<number>`count(*)` })
-			.from(this.table)
+		// Cast needed due to drizzle-orm SQL type conflicts
+		const countSelect: DrizzleCondition = { count: sql<number>`count(*)` }
+		const query = dbWithSelect.select(countSelect).from(this.table).$dynamic()
 
 		// Apply locale filter if set
-		if (this.currentLocale && 'locale' in tableAny) {
-			this.filterConditions.push(eq(tableAny.locale, this.currentLocale))
+		if (this.currentLocale && 'locale' in dynamicTable) {
+			this.filterConditions.push(eq(dynamicTable.locale, this.currentLocale))
 		}
 
 		// Apply version/status filter if set
-		if (this.currentVersion && 'status' in tableAny) {
+		if (this.currentVersion && 'status' in dynamicTable) {
 			if (['draft', 'published', 'archived'].includes(this.currentVersion)) {
-				this.filterConditions.push(eq(tableAny.status, this.currentVersion))
+				this.filterConditions.push(eq(dynamicTable.status, this.currentVersion))
 			}
 		}
 
-		// Apply filters
-		if (this.filterConditions.length > 0) {
-			query = query.where(and(...this.filterConditions))
+		// Apply filters - filter out undefined conditions
+		const validConditions = this.filterConditions.filter(
+			(c): c is NonNullable<typeof c> => c !== undefined,
+		)
+		if (validConditions.length > 0) {
+			const whereCondition: DrizzleCondition = and(...validConditions)
+			query.where(whereCondition)
 		}
 
-		const result = await query
+		const result = (await query) as { count: number }[]
 		return Number(result[0]?.count || 0)
 	}
 
@@ -276,36 +319,48 @@ export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
 	}
 
 	/**
-	 * Map MongoDB-style filter operators to Drizzle conditions
+	 * Map MongoDB-style filter operators to Drizzle conditions.
+	 * Note: Uses DynamicTableColumn for column references due to dynamic column access.
 	 */
-	private mapFilter(filter: Record<string, any>): any[] {
-		const tableAny = this.table as any
-		const conditions: any[] = []
+	private mapFilter(filter: Record<string, unknown>): DrizzleCondition[] {
+		const dynamicTable = this.table as DynamicTable
+		const conditions: DrizzleCondition[] = []
 
 		for (const [key, value] of Object.entries(filter)) {
 			// Handle logical operators
 			if (key === '$and' && Array.isArray(value)) {
-				const andConditions = value.flatMap((f) => this.mapFilter(f))
-				if (andConditions.length > 0) {
-					conditions.push(and(...andConditions))
+				const andConditions = value.flatMap((f) =>
+					this.mapFilter(f as Record<string, unknown>),
+				)
+				const validAndConditions = andConditions.filter(
+					(c): c is NonNullable<typeof c> => c !== undefined,
+				)
+				if (validAndConditions.length > 0) {
+					conditions.push(and(...validAndConditions))
 				}
 				continue
 			}
 
 			if (key === '$or' && Array.isArray(value)) {
 				const orConditions = value.map((f) => {
-					const conds = this.mapFilter(f)
-					return conds.length > 1 ? and(...conds) : conds[0]
+					const conds = this.mapFilter(f as Record<string, unknown>)
+					const validConds = conds.filter(
+						(c): c is NonNullable<typeof c> => c !== undefined,
+					)
+					return validConds.length > 1 ? and(...validConds) : validConds[0]
 				})
-				if (orConditions.length > 0) {
-					conditions.push(or(...orConditions))
+				const validOrConditions = orConditions.filter(
+					(c): c is NonNullable<typeof c> => c !== undefined,
+				)
+				if (validOrConditions.length > 0) {
+					conditions.push(or(...validOrConditions))
 				}
 				continue
 			}
 
 			// Get the column
 			const snakeKey = toSnakeCase(key)
-			const column = tableAny[snakeKey] || tableAny[key]
+			const column = dynamicTable[snakeKey] || dynamicTable[key]
 
 			if (!column) continue
 
@@ -315,7 +370,9 @@ export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
 				typeof value === 'object' &&
 				!Array.isArray(value)
 			) {
-				for (const [op, opValue] of Object.entries(value)) {
+				for (const [op, opValue] of Object.entries(
+					value as Record<string, unknown>,
+				)) {
 					const condition = this.mapOperator(column, op, opValue)
 					if (condition) {
 						conditions.push(condition)
@@ -331,9 +388,14 @@ export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
 	}
 
 	/**
-	 * Map a single operator to a Drizzle condition
+	 * Map a single operator to a Drizzle condition.
+	 * Note: Uses DynamicTableColumn for column parameter due to dynamic column access.
 	 */
-	private mapOperator(column: any, operator: string, value: any): any {
+	private mapOperator(
+		column: DynamicTableColumn,
+		operator: string,
+		value: unknown,
+	): DrizzleCondition {
 		switch (operator) {
 			case '$eq':
 				return eq(column, value)
@@ -348,31 +410,31 @@ export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
 			case '$lte':
 				return lte(column, value)
 			case '$in':
-				return inArray(column, value)
+				return inArray(column, value as unknown[])
 			case '$nin':
-				return notInArray(column, value)
+				return notInArray(column, value as unknown[])
 			case '$regex':
 				// Use ILIKE for case-insensitive matching
 				return ilike(column, `%${value}%`)
 			case '$like':
-				return like(column, value)
+				return like(column, value as string)
 			case '$ilike':
-				return ilike(column, value)
+				return ilike(column, value as string)
 			case '$null':
 				return value ? isNull(column) : isNotNull(column)
 			case '$exists':
 				return value ? isNotNull(column) : isNull(column)
 			default:
 				// Unknown operator - skip
-				return null
+				return undefined
 		}
 	}
 
 	/**
 	 * Map a database row to a result with camelCase keys
 	 */
-	private mapResult(row: any): BaseSchema<T> {
-		const result: Record<string, any> = {}
+	private mapResult(row: DatabaseRow): BaseSchema<T> {
+		const result: Record<string, unknown> = {}
 
 		for (const [key, value] of Object.entries(row)) {
 			const camelKey = toCamelCase(key)

@@ -13,7 +13,7 @@ interface PluginOptions {
 
 @Injectable()
 export class PluginService implements OnModuleInit {
-	private plugins: Map<string, any> = new Map()
+	private plugins: Map<string, unknown> = new Map()
 	private hooks: Map<string, PluginHook[]> = new Map()
 
 	constructor(
@@ -97,15 +97,15 @@ export class PluginService implements OnModuleInit {
 		}
 	}
 
-	getPlugin(name: string): any {
+	getPlugin(name: string): unknown {
 		return this.plugins.get(name)
 	}
 
-	getAllPlugins(): Map<string, any> {
+	getAllPlugins(): Map<string, unknown> {
 		return this.plugins
 	}
 
-	async executeHook(hookName: string, ...args: any[]): Promise<any[]> {
+	async executeHook(hookName: string, ...args: unknown[]): Promise<unknown[]> {
 		const hooks = this.hooks.get(hookName) || []
 		const results = []
 

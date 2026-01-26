@@ -1,12 +1,11 @@
 import type { AuthStrategy } from '@magnet-cms/common'
-import { MagnetModuleOptions } from '@magnet-cms/common'
 import {
-	BadRequestException,
-	ConflictException,
-	Inject,
-	Injectable,
-	NotFoundException,
-} from '@nestjs/common'
+	DuplicateKeyError,
+	InvalidCredentialsError,
+	MagnetModuleOptions,
+	UserNotFoundError,
+} from '@magnet-cms/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { compare, hash } from 'bcryptjs'
 import { UserService } from '~/modules/user'
 import { AUTH_STRATEGY } from './auth.constants'
@@ -78,10 +77,10 @@ export class AuthService {
 	 */
 	async getUserById(id: string) {
 		const user = await this.userService.findOneById(id)
-		if (!user) throw new NotFoundException('User not found')
+		if (!user) throw new UserNotFoundError(id)
 
 		return {
-			id: (user as any).id || (user as any)._id?.toString(),
+			id: user.id,
 			email: user.email,
 			name: user.name,
 			role: user.role,
@@ -93,13 +92,14 @@ export class AuthService {
 	 */
 	async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
 		const user = await this.userService.findOneById(userId)
-		if (!user) throw new NotFoundException('User not found')
+		if (!user) throw new UserNotFoundError(userId)
 
 		if (updateProfileDto.email && updateProfileDto.email !== user.email) {
 			const existingUser = await this.userService.findOne({
 				email: updateProfileDto.email,
 			})
-			if (existingUser) throw new ConflictException('Email already in use')
+			if (existingUser)
+				throw new DuplicateKeyError('email', updateProfileDto.email)
 		}
 
 		await this.userService.update(userId, updateProfileDto)
@@ -111,14 +111,14 @@ export class AuthService {
 	 */
 	async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
 		const user = await this.userService.findOneById(userId)
-		if (!user) throw new NotFoundException('User not found')
+		if (!user) throw new UserNotFoundError(userId)
 
 		const isPasswordValid = await compare(
 			changePasswordDto.currentPassword,
 			user.password,
 		)
 		if (!isPasswordValid) {
-			throw new BadRequestException('Current password is incorrect')
+			throw new InvalidCredentialsError('Current password is incorrect')
 		}
 
 		const hashedPassword = await hash(changePasswordDto.newPassword, 10)

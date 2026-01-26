@@ -1,4 +1,4 @@
-import { Mixed, Prop, Schema } from '@magnet-cms/common'
+import { Mixed, Prop, Schema, type SettingValue } from '@magnet-cms/common'
 
 @Schema({ versioning: false, i18n: false })
 export class Setting {
@@ -6,7 +6,7 @@ export class Setting {
 	key!: string
 
 	@Prop({ type: Mixed, required: true })
-	value!: any
+	value!: SettingValue
 
 	@Prop({ required: true })
 	group!: string

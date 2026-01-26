@@ -9,7 +9,8 @@ import type {
 import { ConflictException, UnauthorizedException } from '@nestjs/common'
 import { PassportStrategy } from '@nestjs/passport'
 import { compare, hash } from 'bcryptjs'
-import { sign } from 'jsonwebtoken'
+import { type SignOptions, sign } from 'jsonwebtoken'
+import type { StringValue } from 'ms'
 import { ExtractJwt, Strategy } from 'passport-jwt'
 import type { UserService } from '~/modules/user'
 
@@ -81,7 +82,7 @@ export class JwtAuthStrategy
 		if (!isPasswordValid) return null
 
 		return {
-			id: (user as any).id || (user as any)._id?.toString(),
+			id: user.id,
 			email: user.email,
 			role: user.role || 'viewer',
 		}
@@ -100,7 +101,10 @@ export class JwtAuthStrategy
 		}
 
 		const payload = { sub: user.id, email: user.email, role: user.role }
-		const token = sign(payload, this.secret, { expiresIn: this.expiresIn })
+		const signOptions: SignOptions = {
+			expiresIn: this.expiresIn as StringValue,
+		}
+		const token = sign(payload, this.secret, signOptions)
 
 		return {
 			access_token: token,
@@ -126,7 +130,7 @@ export class JwtAuthStrategy
 		})
 
 		return {
-			id: (newUser as any).id || (newUser as any)._id?.toString(),
+			id: newUser.id,
 			email: newUser.email,
 			role: newUser.role || 'viewer',
 		}

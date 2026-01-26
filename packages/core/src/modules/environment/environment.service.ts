@@ -22,10 +22,6 @@ export class EnvironmentService {
 		if ('connectionString' in db) {
 			return db.connectionString
 		}
-		// TypeORM configs - construct a connection string representation
-		if ('type' in db && 'host' in db) {
-			return `${db.type}://${db.host}:${db.port}/${db.database}`
-		}
 		return 'unknown'
 	}
 

@@ -6,8 +6,42 @@ import type {
 	QueryBuilder,
 	SortQuery,
 } from '@magnet-cms/common'
-import type { Document, Model as MongooseModel } from 'mongoose'
+import type {
+	Document,
+	FilterQuery as MongooseFilterQuery,
+	Model as MongooseModel,
+} from 'mongoose'
 import { mapDocumentId, mapQueryId } from '~/utils'
+
+/**
+ * Check if value is a non-null object
+ */
+function isObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Check if error is a MongoDB CastError
+ */
+function isCastError(
+	error: unknown,
+): error is { name: 'CastError'; path: string; value: unknown } {
+	return (
+		isObject(error) &&
+		'name' in error &&
+		error.name === 'CastError' &&
+		'path' in error &&
+		typeof error.path === 'string'
+	)
+}
+
+/**
+ * Type for internal filter accumulator
+ */
+type InternalFilter = MongooseFilterQuery<Document & BaseSchema<unknown>> & {
+	$and?: MongooseFilterQuery<Document & BaseSchema<unknown>>[]
+	$or?: MongooseFilterQuery<Document & BaseSchema<unknown>>[]
+}
 
 /**
  * Mongoose implementation of QueryBuilder for fluent database queries.
@@ -24,9 +58,9 @@ import { mapDocumentId, mapQueryId } from '~/utils'
  * ```
  */
 export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
-	private filterAccumulator: Record<string, any> = {}
-	private sortSpec: Record<string, any> = {}
-	private projectionSpec: Record<string, any> = {}
+	private filterAccumulator: InternalFilter = {}
+	private sortSpec: SortQuery<T> = {}
+	private projectionSpec: ProjectionQuery<T> = {}
 	private limitValue?: number
 	private skipValue?: number
 	private currentLocale?: string
@@ -46,7 +80,7 @@ export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
 	 * Supports MongoDB operators like $gt, $lt, $in, $regex, etc.
 	 */
 	where(filter: FilterQuery<T>): this {
-		const mappedFilter = this.mapFilter(filter as any)
+		const mappedFilter = this.mapFilter(filter)
 		Object.assign(this.filterAccumulator, mappedFilter)
 		return this
 	}
@@ -55,7 +89,7 @@ export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
 	 * Add additional AND conditions
 	 */
 	and(filter: FilterQuery<T>): this {
-		const mappedFilter = this.mapFilter(filter as any)
+		const mappedFilter = this.mapFilter(filter)
 		if (!this.filterAccumulator.$and) {
 			this.filterAccumulator.$and = []
 		}
@@ -67,7 +101,7 @@ export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
 	 * Add OR conditions
 	 */
 	or(filters: FilterQuery<T>[]): this {
-		this.filterAccumulator.$or = filters.map((f) => this.mapFilter(f as any))
+		this.filterAccumulator.$or = filters.map((f) => this.mapFilter(f))
 		return this
 	}
 
@@ -127,7 +161,7 @@ export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
 			let query = this.model.find(this.filterAccumulator)
 
 			if (Object.keys(this.sortSpec).length > 0) {
-				query = query.sort(this.sortSpec)
+				query = query.sort(this.sortSpec as Record<string, 1 | -1>)
 			}
 
 			if (this.limitValue !== undefined) {
@@ -139,15 +173,15 @@ export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
 			}
 
 			if (Object.keys(this.projectionSpec).length > 0) {
-				query = query.select(this.projectionSpec)
+				query = query.select(this.projectionSpec as Record<string, 0 | 1>)
 			}
 
 			const results = await query.lean()
 			const mappedResults = results.map((doc) => mapDocumentId<T>(doc))
 			return this.applyLocale(mappedResults)
-		} catch (error: any) {
+		} catch (error: unknown) {
 			// Handle CastError when trying to find by id with non-ObjectId value
-			if (error.name === 'CastError' && error.path === '_id') {
+			if (isCastError(error) && error.path === '_id') {
 				return []
 			}
 			throw error
@@ -162,7 +196,7 @@ export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
 			let query = this.model.findOne(this.filterAccumulator)
 
 			if (Object.keys(this.sortSpec).length > 0) {
-				query = query.sort(this.sortSpec)
+				query = query.sort(this.sortSpec as Record<string, 1 | -1>)
 			}
 
 			if (this.skipValue !== undefined) {
@@ -170,7 +204,7 @@ export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
 			}
 
 			if (Object.keys(this.projectionSpec).length > 0) {
-				query = query.select(this.projectionSpec)
+				query = query.select(this.projectionSpec as Record<string, 0 | 1>)
 			}
 
 			const result = await query.lean()
@@ -178,9 +212,9 @@ export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
 
 			const mappedResult = mapDocumentId<T>(result)
 			return this.applyLocaleOne(mappedResult)
-		} catch (error: any) {
+		} catch (error: unknown) {
 			// Handle CastError when trying to find by id with non-ObjectId value
-			if (error.name === 'CastError' && error.path === '_id') {
+			if (isCastError(error) && error.path === '_id') {
 				return null
 			}
 			throw error
@@ -224,8 +258,8 @@ export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
 	/**
 	 * Map filter to handle id -> _id conversion
 	 */
-	private mapFilter(filter: Record<string, any>): Record<string, any> {
-		return mapQueryId(filter)
+	private mapFilter(filter: FilterQuery<T>): InternalFilter {
+		return mapQueryId(filter as Partial<BaseSchema<T>>) as InternalFilter
 	}
 
 	/**
@@ -244,13 +278,13 @@ export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
 		if (!this.currentLocale) return doc
 
 		// If document has setLocale method, apply locale
-		if (
-			doc &&
-			typeof doc === 'object' &&
-			'setLocale' in doc &&
-			typeof (doc as any).setLocale === 'function'
-		) {
-			return (doc as any).setLocale(this.currentLocale)
+		if (doc && typeof doc === 'object' && 'setLocale' in doc) {
+			const docWithLocale = doc as BaseSchema<T> & {
+				setLocale: (locale: string) => BaseSchema<T>
+			}
+			if (typeof docWithLocale.setLocale === 'function') {
+				return docWithLocale.setLocale(this.currentLocale)
+			}
 		}
 
 		return doc

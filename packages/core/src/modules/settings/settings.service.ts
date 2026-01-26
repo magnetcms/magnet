@@ -5,8 +5,10 @@ import {
 	PropOptions,
 	SchemaSetting,
 	SettingType,
+	SettingValue,
 	ValidationException,
 } from '@magnet-cms/common'
+import type { Type } from '@nestjs/common'
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { plainToInstance } from 'class-transformer'
 import { validate } from 'class-validator'
@@ -15,7 +17,7 @@ import { Setting } from './schemas/setting.schema'
 @Injectable()
 export class SettingsService implements OnModuleInit {
 	private readonly logger = new Logger(SettingsService.name)
-	private registeredSchemas: Map<string, any> = new Map()
+	private registeredSchemas: Map<string, Type> = new Map()
 
 	constructor(
 		@InjectModel(Setting) private readonly settingModel: Model<Setting>,
@@ -63,7 +65,10 @@ export class SettingsService implements OnModuleInit {
 		return await this.settingModel.findOne({ key })
 	}
 
-	async updateSetting(key: string, value: unknown): Promise<Setting | null> {
+	async updateSetting(
+		key: string,
+		value: SettingValue,
+	): Promise<Setting | null> {
 		const setting = await this.getSetting(key)
 		if (!setting) {
 			throw new Error(`Setting with key "${key}" not found`)
@@ -114,7 +119,7 @@ export class SettingsService implements OnModuleInit {
 		group: string,
 		key: string,
 		type: SettingType | string,
-		value: unknown,
+		value: SettingValue,
 	): Promise<Setting> {
 		const existingSetting: Setting | null = await this.settingModel.findOne({
 			group,
@@ -190,13 +195,13 @@ export class SettingsService implements OnModuleInit {
 		const settingsToRegister: SchemaSetting[] = fields.map(
 			({ propertyKey, designType, type }) => {
 				const key: string = propertyKey.toString()
-				let value: unknown = (instance as Record<string, unknown>)[key]
+				let value = (instance as Record<string, unknown>)[key] as SettingValue
 				if (value === undefined) {
 					const propData = propMetadataArray.find(
 						(p) => p.propertyKey === propertyKey,
 					)
 					if (propData?.options) {
-						value = propData.options.default
+						value = propData.options.default as SettingValue
 					}
 				}
 				return { key, value, type: type || designType.name }

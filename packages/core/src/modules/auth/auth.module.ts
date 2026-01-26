@@ -1,8 +1,9 @@
 import type { AuthConfig } from '@magnet-cms/common'
 import { MagnetModuleOptions } from '@magnet-cms/common'
 import { DynamicModule, Module } from '@nestjs/common'
-import { JwtModule } from '@nestjs/jwt'
+import { JwtModule, type JwtModuleOptions } from '@nestjs/jwt'
 import { PassportModule } from '@nestjs/passport'
+import type { StringValue } from 'ms'
 import { DatabaseModule } from '~/modules/database'
 import { UserModule, UserService } from '~/modules/user'
 import { AuthStrategyFactory } from './auth-strategy.factory'
@@ -47,9 +48,11 @@ export class AuthModule {
 				// Always use 'jwt' as default strategy for guards (JwtAuthGuard)
 				PassportModule.register({ defaultStrategy: 'jwt' }),
 				JwtModule.registerAsync({
-					useFactory: (options: MagnetModuleOptions) => ({
+					useFactory: (options: MagnetModuleOptions): JwtModuleOptions => ({
 						secret: authConfig?.jwt?.secret || options.jwt.secret,
-						signOptions: { expiresIn: authConfig?.jwt?.expiresIn || '7d' },
+						signOptions: {
+							expiresIn: (authConfig?.jwt?.expiresIn || '7d') as StringValue,
+						},
 					}),
 					inject: [MagnetModuleOptions],
 				}),
