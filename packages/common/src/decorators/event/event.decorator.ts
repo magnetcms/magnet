@@ -40,16 +40,16 @@ export function OnEvent(
 	event: EventName,
 	options: EventHandlerOptions = {},
 ): MethodDecorator {
-	return (
+	return <T>(
 		target: object,
 		propertyKey: string | symbol,
-		descriptor: TypedPropertyDescriptor<unknown>,
-	): TypedPropertyDescriptor<unknown> => {
+		descriptor: TypedPropertyDescriptor<T>,
+	): TypedPropertyDescriptor<T> => {
 		const metadata: EventHandlerMetadata = { event, options }
 		SetMetadata(EVENT_HANDLER_METADATA, metadata)(
 			target,
 			propertyKey,
-			descriptor,
+			descriptor as TypedPropertyDescriptor<unknown>,
 		)
 		return descriptor
 	}

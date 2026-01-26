@@ -20,6 +20,8 @@ import type { BaseSchema } from './base.model'
  * ```
  */
 export abstract class QueryBuilder<Schema> {
+	// ============= Filtering =============
+
 	/**
 	 * Add filter conditions to the query
 	 * @param filter Filter conditions with optional operators
@@ -38,11 +40,15 @@ export abstract class QueryBuilder<Schema> {
 	 */
 	abstract or(filters: FilterQuery<Schema>[]): this
 
+	// ============= Ordering =============
+
 	/**
 	 * Sort results by specified fields
 	 * @param sort Sort specification with field names and directions
 	 */
 	abstract sort(sort: SortQuery<Schema>): this
+
+	// ============= Pagination =============
 
 	/**
 	 * Limit the number of results
@@ -57,10 +63,52 @@ export abstract class QueryBuilder<Schema> {
 	abstract skip(count: number): this
 
 	/**
-	 * Select specific fields to return
+	 * Execute with pagination info
+	 * @param page Page number (1-indexed)
+	 * @param perPage Items per page
+	 * @returns Data array with pagination metadata
+	 */
+	abstract paginate(
+		page?: number,
+		perPage?: number,
+	): Promise<PaginatedResult<BaseSchema<Schema>>>
+
+	// ============= Field Selection =============
+
+	/**
+	 * Select specific fields to return (inclusion)
 	 * @param projection Field selection (1 to include, 0 to exclude)
 	 */
 	abstract select(projection: ProjectionQuery<Schema>): this
+
+	/**
+	 * Exclude specific fields from results
+	 * @param fields Array of field names to exclude
+	 */
+	exclude(fields: (keyof Schema | string)[]): this {
+		// Default implementation converts to select with 0 values
+		const projection: ProjectionQuery<Schema> = {} as ProjectionQuery<Schema>
+		for (const field of fields) {
+			;(projection as Record<string, 0 | 1>)[field as string] = 0
+		}
+		return this.select(projection)
+	}
+
+	// ============= Locale & Version =============
+
+	/**
+	 * Set the locale for query results
+	 * @param locale The locale to use
+	 */
+	abstract locale(locale: string): this
+
+	/**
+	 * Set the version filter for query
+	 * @param versionId The version ID or status
+	 */
+	abstract version(versionId: string): this
+
+	// ============= Execution =============
 
 	/**
 	 * Execute the query and return all matching documents
@@ -81,22 +129,4 @@ export abstract class QueryBuilder<Schema> {
 	 * Check if any matching documents exist
 	 */
 	abstract exists(): Promise<boolean>
-
-	/**
-	 * Execute with pagination info
-	 * @returns Data array with total count
-	 */
-	abstract paginate(): Promise<PaginatedResult<BaseSchema<Schema>>>
-
-	/**
-	 * Set the locale for query results
-	 * @param locale The locale to use
-	 */
-	abstract locale(locale: string): this
-
-	/**
-	 * Set the version filter for query
-	 * @param versionId The version ID or status
-	 */
-	abstract version(versionId: string): this
 }

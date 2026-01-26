@@ -5,8 +5,11 @@ import {
 	Model,
 	ModelCreateOptions,
 	ModelUpdateOptions,
+	type NativeAccess,
+	type SchemaMetadata,
 	type VersionDocument,
 	fromMongooseError,
+	getSchemaOptions,
 	isCastError,
 	isVersionDocument,
 } from '@magnet-cms/common'
@@ -58,8 +61,8 @@ export function createModel<T>(
 		/**
 		 * Get the current locale
 		 */
-		getLocale(): string | undefined {
-			return this.currentLocale
+		getLocale(): string {
+			return this.currentLocale ?? 'en'
 		}
 
 		/**
@@ -661,10 +664,71 @@ export function createModel<T>(
 		 * Get access to the native Mongoose model.
 		 * Use with caution - bypasses Magnet abstractions like locale and versioning.
 		 *
-		 * @returns The underlying Mongoose Model
+		 * @returns Typed native access object
 		 */
-		native(): MongooseModel<Document & BaseSchema<T>> {
-			return this.model
+		native(): NativeAccess<T> {
+			const model = this.model
+			return {
+				raw: model,
+				adapterName: 'mongoose',
+				async rawQuery<R = unknown>(
+					query: string,
+					_params?: unknown[],
+				): Promise<R> {
+					// MongoDB uses BSON/aggregation pipeline, not raw string queries
+					// Parse the query string as JSON for aggregation pipeline
+					const pipeline = JSON.parse(query) as unknown[]
+					// Use type assertion for aggregate since we're parsing user-provided JSON
+					const result = await (
+						model.aggregate as (pipeline: unknown[]) => Promise<unknown[]>
+					)(pipeline)
+					return result as R
+				},
+			}
+		}
+
+		/**
+		 * Get schema name
+		 */
+		getSchemaName(): string {
+			return this.model.modelName
+		}
+
+		/**
+		 * Get schema metadata
+		 */
+		getMetadata(): SchemaMetadata {
+			// Try to get schema class from schema options if stored
+			const schemaOptions = this.model.schema.options as Record<string, unknown>
+			const schemaClass = schemaOptions?.schemaClass as
+				| (new () => unknown)
+				| undefined
+			const options = schemaClass ? getSchemaOptions(schemaClass) : {}
+
+			// Build properties from schema paths
+			const properties: SchemaMetadata['properties'] = []
+			this.model.schema.eachPath((path, schemaType) => {
+				// Skip internal paths
+				if (path.startsWith('_')) return
+
+				properties.push({
+					name: path,
+					type: schemaType.instance || 'Mixed',
+					isArray: schemaType.instance === 'Array',
+					unique: schemaType.options?.unique === true,
+					required: schemaType.isRequired === true,
+					validations: [],
+					ui: { tab: 'General', type: 'text' },
+					ref: schemaType.options?.ref as string | undefined,
+				})
+			})
+
+			return {
+				name: this.model.modelName.toLowerCase(),
+				className: this.model.modelName,
+				properties,
+				options,
+			}
 		}
 	}
 }

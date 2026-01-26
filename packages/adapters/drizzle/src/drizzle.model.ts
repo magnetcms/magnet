@@ -5,8 +5,11 @@ import {
 	Model,
 	ModelCreateOptions,
 	ModelUpdateOptions,
+	type NativeAccess,
+	type SchemaMetadata,
 	type VersionDocument,
 	fromDrizzleError,
+	getSchemaOptions,
 } from '@magnet-cms/common'
 import { toCamelCase } from '@magnet-cms/utils'
 import type { Type } from '@nestjs/common'
@@ -78,8 +81,28 @@ export function createModel<T>(
 		/**
 		 * Get the current locale
 		 */
-		getLocale(): string | undefined {
-			return this.currentLocale
+		getLocale(): string {
+			return this.currentLocale ?? 'en'
+		}
+
+		/**
+		 * Check if versioning is enabled for this model
+		 * Drizzle delegates versioning to HistoryService
+		 */
+		isVersioningEnabled(): boolean {
+			return false
+		}
+
+		/**
+		 * Create a version snapshot of a document
+		 * Drizzle delegates versioning to HistoryService
+		 */
+		createVersion(
+			_documentId: string,
+			_data: Partial<T>,
+		): Promise<VersionDocument | null> {
+			// Versions are managed by HistoryService in core
+			return Promise.resolve(null)
 		}
 
 		/**
@@ -396,8 +419,70 @@ export function createModel<T>(
 		/**
 		 * Get access to the native Drizzle db and table
 		 */
-		native(): { db: DrizzleDB; table: PgTable } {
-			return { db: this._db, table: this._table }
+		native(): NativeAccess<T> {
+			const db = this._db
+			const table = this._table
+			return {
+				raw: { db, table },
+				adapterName: 'drizzle',
+				async rawQuery<R = unknown>(
+					query: string,
+					_params?: unknown[],
+				): Promise<R> {
+					// Execute raw SQL query
+					// Note: params should be embedded in the query string for raw SQL
+					// Use type assertion to work around Drizzle's internal SQL type conflicts
+					// @see https://github.com/drizzle-team/drizzle-orm/issues/1510
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					const result = await (db as any).execute(sql.raw(query))
+					return result as R
+				},
+			}
+		}
+
+		/**
+		 * Get schema name
+		 */
+		getSchemaName(): string {
+			return this._schemaClass.name
+		}
+
+		/**
+		 * Get schema metadata
+		 */
+		getMetadata(): SchemaMetadata {
+			const options = getSchemaOptions(this._schemaClass)
+			const dynamicTable = this._table as DynamicTable
+
+			// Build properties from table columns
+			const properties: SchemaMetadata['properties'] = []
+			for (const [key, column] of Object.entries(dynamicTable)) {
+				// Skip non-column entries
+				if (
+					typeof column !== 'object' ||
+					column === null ||
+					!('dataType' in column)
+				) {
+					continue
+				}
+
+				properties.push({
+					name: key,
+					type: String((column as { dataType?: string }).dataType || 'unknown'),
+					isArray: false,
+					unique: false,
+					required: (column as { notNull?: boolean }).notNull === true,
+					validations: [],
+					ui: { tab: 'General', type: 'text' },
+				})
+			}
+
+			return {
+				name: this._schemaClass.name.toLowerCase(),
+				className: this._schemaClass.name,
+				properties,
+				options,
+			}
 		}
 
 		/**

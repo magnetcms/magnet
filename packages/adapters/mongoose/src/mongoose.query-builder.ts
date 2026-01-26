@@ -1,10 +1,10 @@
-import type {
-	BaseSchema,
-	FilterQuery,
-	PaginatedResult,
-	ProjectionQuery,
+import {
+	type BaseSchema,
+	type FilterQuery,
+	type PaginatedResult,
+	type ProjectionQuery,
 	QueryBuilder,
-	SortQuery,
+	type SortQuery,
 } from '@magnet-cms/common'
 import type {
 	Document,
@@ -57,7 +57,7 @@ type InternalFilter = MongooseFilterQuery<Document & BaseSchema<unknown>> & {
  *   .exec()
  * ```
  */
-export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
+export class MongooseQueryBuilder<T> extends QueryBuilder<T> {
 	private filterAccumulator: InternalFilter = {}
 	private sortSpec: SortQuery<T> = {}
 	private projectionSpec: ProjectionQuery<T> = {}
@@ -71,6 +71,7 @@ export class MongooseQueryBuilder<T> implements QueryBuilder<T> {
 		locale?: string,
 		version?: string,
 	) {
+		super()
 		this.currentLocale = locale
 		this.currentVersion = version
 	}

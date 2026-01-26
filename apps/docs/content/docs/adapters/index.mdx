@@ -3,15 +3,14 @@ title: Database Adapters
 description: Database adapters for Magnet CMS
 ---
 
-Magnet CMS uses an adapter pattern to support multiple databases. Choose the adapter that best fits your needs.
+Magnet CMS uses an adapter pattern to support multiple databases. All adapters implement a unified contract ensuring consistent behavior across different database backends.
 
 ## Available Adapters
 
-| Adapter | Package | Databases |
-|---------|---------|-----------|
-| Mongoose | `@magnet-cms/adapter-mongoose` | MongoDB |
-| Drizzle | `@magnet-cms/adapter-drizzle` | PostgreSQL, MySQL, SQLite |
-| Supabase | `@magnet-cms/adapter-supabase` | PostgreSQL (Supabase) |
+| Adapter | Package | Databases | Features |
+|---------|---------|-----------|----------|
+| Mongoose | `@magnet-cms/adapter-mongoose` | MongoDB | Transactions, Full-text search, Geospatial, Change streams |
+| Drizzle | `@magnet-cms/adapter-drizzle` | PostgreSQL, MySQL, SQLite | Transactions, Full-text search, Migrations |
 
 ## Quick Start
 
@@ -41,7 +40,7 @@ export class AppModule {}
 ### PostgreSQL (Drizzle)
 
 ```bash
-bun add @magnet-cms/adapter-drizzle drizzle-orm @neondatabase/serverless
+bun add @magnet-cms/adapter-drizzle drizzle-orm pg
 ```
 
 ```typescript
@@ -49,58 +48,21 @@ MagnetModule.forRoot({
   db: {
     connectionString: process.env.DATABASE_URL,
     dialect: 'postgresql',
-    driver: 'neon',
+    driver: 'pg',
   },
   jwt: { secret: process.env.JWT_SECRET },
 })
 ```
 
-### Supabase
+## Unified Adapter Contract
 
-```bash
-bun add @magnet-cms/adapter-supabase @magnet-cms/adapter-drizzle drizzle-orm
-```
+All adapters implement the `DatabaseAdapter` abstract class with a consistent API:
 
 ```typescript
-MagnetModule.forRoot({
-  db: {
-    connectionString: process.env.SUPABASE_DATABASE_URL,
-    dialect: 'postgresql',
-  },
-  jwt: { secret: process.env.SUPABASE_JWT_SECRET },
-  auth: {
-    strategy: 'supabase',
-    supabaseUrl: process.env.SUPABASE_URL,
-    supabaseKey: process.env.SUPABASE_ANON_KEY,
-  },
-})
-```
+abstract class DatabaseAdapter implements OnModuleDestroy {
+  // Adapter identifier
+  abstract readonly name: AdapterName
 
-## Auto-Detection
-
-Magnet automatically detects which adapter to use based on your configuration:
-
-- `uri` property → Mongoose adapter
-- `connectionString` + `dialect` → Drizzle adapter
-
-```typescript
-import { detectDatabaseAdapter } from '@magnet-cms/common'
-
-// MongoDB config
-detectDatabaseAdapter({ uri: 'mongodb://...' })
-// Returns: 'mongoose'
-
-// PostgreSQL config
-detectDatabaseAdapter({ connectionString: '...', dialect: 'postgresql' })
-// Returns: 'drizzle'
-```
-
-## Adapter Interface
-
-All adapters implement the `DatabaseAdapter` interface:
-
-```typescript
-abstract class DatabaseAdapter {
   // Connect to database
   abstract connect(options: MagnetModuleOptions): DynamicModule
 
@@ -108,22 +70,167 @@ abstract class DatabaseAdapter {
   abstract forFeature(schemas: Type | Type[]): DynamicModule
 
   // Get model wrapper
-  abstract model<T>(modelInstance: any): any
+  abstract model<T>(modelInstance: unknown): ModelClass<T>
 
   // Generate injection token
   abstract token(schema: string): string
+
+  // Cleanup on module destroy
+  abstract onModuleDestroy(): Promise<void>
+
+  // Check feature support
+  abstract supports(feature: AdapterFeature): boolean
+
+  // Get adapter capabilities
+  abstract getCapabilities(): AdapterCapabilities
 }
+```
+
+### Adapter Features
+
+Check if an adapter supports specific features:
+
+```typescript
+type AdapterFeature =
+  | 'transactions'
+  | 'nested-transactions'
+  | 'json-queries'
+  | 'full-text-search'
+  | 'geospatial'
+  | 'change-streams'
+  | 'migrations'
+
+// Check feature support
+if (adapter.supports('transactions')) {
+  // Use transactions
+}
+```
+
+### Adapter Capabilities
+
+Get comprehensive information about adapter capabilities:
+
+```typescript
+const caps = adapter.getCapabilities()
+// {
+//   databases: ['mongodb'],
+//   features: ['transactions', 'json-queries', 'full-text-search'],
+//   handlesVersioning: false,
+//   supportsLazyCreation: true,
+// }
+```
+
+## Unified Model Interface
+
+All adapter models implement the same interface:
+
+```typescript
+abstract class Model<Schema> {
+  // CRUD Operations
+  abstract create(data, options?): Promise<BaseSchema<Schema>>
+  abstract find(): Promise<BaseSchema<Schema>[]>
+  abstract findById(id: string): Promise<BaseSchema<Schema> | null>
+  abstract findOne(query): Promise<BaseSchema<Schema> | null>
+  abstract findMany(query): Promise<BaseSchema<Schema>[]>
+  abstract update(query, data, options?): Promise<BaseSchema<Schema>>
+  abstract delete(query): Promise<boolean>
+
+  // Locale & Versioning
+  abstract locale(locale: string): this
+  getLocale(): string
+  version(versionId: string): this
+  isVersioningEnabled(): boolean
+  createVersion(documentId, data): Promise<VersionDocument | null>
+  findVersions(documentId): Promise<VersionDocument[]>
+  findVersionById(versionId): Promise<VersionDocument | null>
+  restoreVersion(versionId): Promise<BaseSchema<Schema> | null>
+
+  // Query Builder
+  query(): QueryBuilder<Schema>
+
+  // Native Access
+  native(): NativeAccess<Schema>
+
+  // Metadata
+  getSchemaName(): string
+  getMetadata(): SchemaMetadata
+}
+```
+
+### Native Access
+
+For advanced use cases, access the underlying database directly:
+
+```typescript
+const nativeAccess = model.native()
+
+// Get adapter name for conditional logic
+if (nativeAccess.adapterName === 'mongoose') {
+  // MongoDB-specific operations
+  const mongooseModel = nativeAccess.raw
+}
+
+// Execute raw queries
+const result = await nativeAccess.rawQuery('SELECT * FROM users')
+```
+
+## Unified Query Builder
+
+All adapters support the same query builder interface:
+
+```typescript
+const results = await model.query()
+  .where({ status: 'active', age: { $gte: 18 } })
+  .sort({ createdAt: -1 })
+  .limit(10)
+  .skip(20)
+  .select({ name: 1, email: 1 })
+  .exec()
+
+// Pagination
+const paginated = await model.query()
+  .where({ status: 'active' })
+  .paginate(1, 20) // page 1, 20 items per page
+```
+
+## Token Generation
+
+Use the unified token functions:
+
+```typescript
+import { getModelToken, getSchemaToken, getAdapterToken } from '@magnet-cms/common'
+
+// Get model injection token
+const token = getModelToken('User') // 'MAGNET_MODEL_USER'
+
+// Get schema token
+const schemaToken = getSchemaToken('User') // 'MAGNET_SCHEMA_USER'
+
+// Get adapter token
+const adapterToken = getAdapterToken() // 'MAGNET_DATABASE_ADAPTER'
 ```
 
 ## Creating Custom Adapters
 
-Implement the `DatabaseAdapter` interface:
+To create a custom adapter:
+
+1. Extend `DatabaseAdapter` abstract class
+2. Implement all required methods
+3. Ensure the Model implementation matches the contract
+4. Run the compliance test suite
 
 ```typescript
-import { DatabaseAdapter } from '@magnet-cms/common'
-import { DynamicModule, Type } from '@nestjs/common'
+import {
+  DatabaseAdapter,
+  AdapterName,
+  AdapterFeature,
+  AdapterCapabilities,
+  getModelToken,
+} from '@magnet-cms/common'
 
-export class CustomAdapter implements DatabaseAdapter {
+class CustomAdapter extends DatabaseAdapter {
+  readonly name: AdapterName = 'custom' as AdapterName
+
   connect(options: MagnetModuleOptions): DynamicModule {
     // Setup database connection
   }
@@ -132,12 +239,29 @@ export class CustomAdapter implements DatabaseAdapter {
     // Register schemas with database
   }
 
-  model<T>(modelInstance: any): any {
-    // Return model wrapper
+  model<T>(modelInstance: unknown): ModelClass<T> {
+    // Return model wrapper class
   }
 
   token(schema: string): string {
-    return `Custom${schema}Model`
+    return getModelToken(schema)
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    // Cleanup connections
+  }
+
+  supports(feature: AdapterFeature): boolean {
+    return ['transactions'].includes(feature)
+  }
+
+  getCapabilities(): AdapterCapabilities {
+    return {
+      databases: ['custom'],
+      features: ['transactions'],
+      handlesVersioning: false,
+      supportsLazyCreation: true,
+    }
   }
 }
 ```

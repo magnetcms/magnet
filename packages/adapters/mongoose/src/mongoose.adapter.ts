@@ -1,12 +1,16 @@
 import {
+	type AdapterCapabilities,
+	type AdapterFeature,
+	type AdapterName,
 	BaseSchema,
 	DatabaseAdapter,
 	MagnetModuleOptions,
 	MongooseConfig,
+	getModelToken,
 	getSchemaOptions,
 } from '@magnet-cms/common'
 import { DynamicModule, Injectable, Type } from '@nestjs/common'
-import { MongooseModule, SchemaFactory, getModelToken } from '@nestjs/mongoose'
+import { MongooseModule, SchemaFactory } from '@nestjs/mongoose'
 import mongoose, { Document, Model as MongooseModel, Schema } from 'mongoose'
 
 import { DocumentPluginService } from './document/document.plugin'
@@ -14,6 +18,7 @@ import { createModel } from './mongoose.model'
 
 @Injectable()
 class MongooseAdapter extends DatabaseAdapter {
+	readonly name: AdapterName = 'mongoose'
 	private options: MagnetModuleOptions | null = null
 	private readonly documentPlugin: DocumentPluginService
 
@@ -59,7 +64,7 @@ class MongooseAdapter extends DatabaseAdapter {
 		return MongooseModule.forFeature(schemasFactory)
 	}
 
-	model<T>(modelInstance: any): any {
+	model<T>(modelInstance: unknown): ReturnType<typeof createModel<T>> {
 		return createModel<T>(
 			modelInstance as MongooseModel<Document & BaseSchema<T>>,
 		)
@@ -67,6 +72,47 @@ class MongooseAdapter extends DatabaseAdapter {
 
 	token(schema: string): string {
 		return getModelToken(schema)
+	}
+
+	/**
+	 * Cleanup on module destroy - close MongoDB connection
+	 */
+	async onModuleDestroy(): Promise<void> {
+		if (mongoose.connection.readyState === 1) {
+			await mongoose.connection.close()
+		}
+	}
+
+	/**
+	 * Check if adapter supports a feature
+	 */
+	supports(feature: AdapterFeature): boolean {
+		const supportedFeatures: AdapterFeature[] = [
+			'transactions',
+			'json-queries',
+			'full-text-search',
+			'geospatial',
+			'change-streams',
+		]
+		return supportedFeatures.includes(feature)
+	}
+
+	/**
+	 * Get adapter capabilities
+	 */
+	getCapabilities(): AdapterCapabilities {
+		return {
+			databases: ['mongodb'],
+			features: [
+				'transactions',
+				'json-queries',
+				'full-text-search',
+				'geospatial',
+				'change-streams',
+			],
+			handlesVersioning: false,
+			supportsLazyCreation: true,
+		}
 	}
 
 	/**

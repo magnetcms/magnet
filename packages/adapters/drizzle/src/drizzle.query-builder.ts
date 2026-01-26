@@ -1,10 +1,10 @@
-import type {
-	BaseSchema,
-	FilterQuery,
-	PaginatedResult,
-	ProjectionQuery,
+import {
+	type BaseSchema,
+	type FilterQuery,
+	type PaginatedResult,
+	type ProjectionQuery,
 	QueryBuilder,
-	SortQuery,
+	type SortQuery,
 } from '@magnet-cms/common'
 import { toCamelCase, toSnakeCase } from '@magnet-cms/utils'
 import {
@@ -76,7 +76,7 @@ type DrizzleCondition = any
  *   .exec()
  * ```
  */
-export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
+export class DrizzleQueryBuilder<T> extends QueryBuilder<T> {
 	private filterConditions: DrizzleCondition[] = []
 	private sortSpecs: { column: DrizzleColumn; direction: 'asc' | 'desc' }[] = []
 	private selectedColumns: string[] = []
@@ -91,6 +91,7 @@ export class DrizzleQueryBuilder<T> implements QueryBuilder<T> {
 		locale?: string,
 		version?: string,
 	) {
+		super()
 		this.currentLocale = locale
 		this.currentVersion = version
 	}

@@ -1,8 +1,15 @@
-import { DatabaseAdapter, MagnetModuleOptions } from '@magnet-cms/common'
+import {
+	type AdapterCapabilities,
+	type AdapterFeature,
+	type AdapterName,
+	DatabaseAdapter,
+	MagnetModuleOptions,
+	getModelToken,
+} from '@magnet-cms/common'
 import { DynamicModule, Injectable, Module, Type } from '@nestjs/common'
 import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
-import { getTableConfig } from 'drizzle-orm/pg-core'
+import { type PgTable, getTableConfig } from 'drizzle-orm/pg-core'
 import { Pool } from 'pg'
 
 import { createNeonWebSocketConnection } from './dialects/neon'
@@ -18,9 +25,10 @@ export const DRIZZLE_CONFIG = 'DRIZZLE_CONFIG'
 
 /**
  * Get model token for a schema
+ * @deprecated Use getModelToken from @magnet-cms/common instead
  */
 export function getDrizzleModelToken(schema: string): string {
-	return `DRIZZLE_MODEL_${schema.toUpperCase()}`
+	return getModelToken(schema)
 }
 
 /**
@@ -38,10 +46,12 @@ class DrizzleFeatureModule {}
  */
 @Injectable()
 class DrizzleAdapter extends DatabaseAdapter {
+	readonly name: AdapterName = 'drizzle'
 	private db: DrizzleDB | null = null
 	private pool: Pool | null = null
 	private options: MagnetModuleOptions | null = null
-	private schemaRegistry: Map<string, any> = new Map()
+	private schemaRegistry: Map<string, { table: PgTable; tableName: string }> =
+		new Map()
 	private tablesInitialized = false
 
 	constructor() {
@@ -351,7 +361,7 @@ class DrizzleAdapter extends DatabaseAdapter {
 	 * Get the injection token for a schema.
 	 */
 	token(schema: string): string {
-		return getDrizzleModelToken(schema)
+		return getModelToken(schema)
 	}
 
 	/**
@@ -359,6 +369,36 @@ class DrizzleAdapter extends DatabaseAdapter {
 	 */
 	getDb(): DrizzleDB | null {
 		return this.db
+	}
+
+	/**
+	 * Check if adapter supports a feature
+	 */
+	supports(feature: AdapterFeature): boolean {
+		const supportedFeatures: AdapterFeature[] = [
+			'transactions',
+			'json-queries',
+			'full-text-search',
+			'migrations',
+		]
+		return supportedFeatures.includes(feature)
+	}
+
+	/**
+	 * Get adapter capabilities
+	 */
+	getCapabilities(): AdapterCapabilities {
+		return {
+			databases: ['postgresql', 'mysql', 'sqlite'],
+			features: [
+				'transactions',
+				'json-queries',
+				'full-text-search',
+				'migrations',
+			],
+			handlesVersioning: false,
+			supportsLazyCreation: true,
+		}
 	}
 
 	/**
