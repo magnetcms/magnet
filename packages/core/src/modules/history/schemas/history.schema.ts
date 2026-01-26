@@ -1,34 +1,43 @@
-import { Mixed, Prop, Schema } from '@magnet-cms/common'
+import { Field, Mixed, Prop, Schema } from '@magnet-cms/common'
 
 @Schema({ versioning: false, i18n: false })
 export class History {
-	@Prop({ required: true })
+	@Field.Text({ required: true })
 	documentId!: string
 
-	@Prop({ required: true })
+	@Field.Text({ required: true })
 	versionId!: string
 
-	@Prop({ required: true })
+	@Field.Text({ required: true })
 	schemaName!: string
 
-	@Prop({ required: true, default: 'en' })
+	@Field.Text({ required: true, default: 'en' })
 	locale!: string
 
-	@Prop({ required: true, default: 1 })
+	@Field.Number({ required: true, default: 1 })
 	versionNumber!: number
 
-	@Prop({ required: true, default: 'draft' as const })
+	@Field.Select({
+		required: true,
+		default: 'draft',
+		options: [
+			{ label: 'Draft', value: 'draft' },
+			{ label: 'Published', value: 'published' },
+			{ label: 'Archived', value: 'archived' },
+		],
+	})
 	status!: 'draft' | 'published' | 'archived'
 
+	// Mixed type for arbitrary document data - keep as @Prop
 	@Prop({ type: Mixed, required: true })
-	data!: any
+	data!: unknown
 
-	@Prop({ required: true, default: () => new Date() })
+	@Field.Date({ required: true, default: () => new Date() })
 	createdAt!: Date
 
-	@Prop()
+	@Field.Text()
 	createdBy?: string
 
-	@Prop()
+	@Field.Text()
 	notes?: string
 }

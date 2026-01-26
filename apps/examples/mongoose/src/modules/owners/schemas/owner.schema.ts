@@ -1,4 +1,4 @@
-import { Prop, Schema, UI, Validators } from '@magnet-cms/common'
+import { Field, Schema } from '@magnet-cms/common'
 import {
 	IsEmail,
 	IsNotEmpty,
@@ -9,24 +9,20 @@ import {
 
 @Schema()
 export class Owner {
-	@Prop({ required: true })
-	@Validators(IsString(), Length(2, 100), IsNotEmpty())
-	@UI({ tab: 'General', row: true })
+	@Field.Text({ required: true, tab: 'General', row: true })
+	@Field.Validators(IsString(), Length(2, 100), IsNotEmpty())
 	name!: string
 
-	@Prop({ required: true, unique: true })
-	@Validators(IsEmail(), IsNotEmpty())
-	@UI({ tab: 'General', type: 'email', row: true })
+	@Field.Email({ required: true, unique: true, tab: 'General', row: true })
+	@Field.Validators(IsEmail(), IsNotEmpty())
 	email!: string
 
-	@Prop({ required: true })
-	@Validators(IsString(), Length(10, 20), IsNotEmpty())
-	@UI({ tab: 'General', type: 'phone' })
+	@Field.Phone({ required: true, tab: 'General' })
+	@Field.Validators(IsString(), Length(10, 20), IsNotEmpty())
 	phone!: string
 
-	@Prop({ required: false })
-	@Validators(IsString(), IsOptional())
-	@UI({ tab: 'General' })
+	@Field.Text({ required: false, tab: 'General' })
+	@Field.Validators(IsString(), IsOptional())
 	address?: string
 
 	// Virtual relation to cats - one owner has many cats

@@ -1,4 +1,4 @@
-import { Prop, Schema, UI, Validators } from '@magnet-cms/common'
+import { Field, Prop, Schema } from '@magnet-cms/common'
 import { Type } from 'class-transformer'
 import {
 	IsDate,
@@ -19,12 +19,12 @@ export class MedicalRecord {
 		ref: 'Cat',
 		required: true,
 	})
-	@Validators(IsNotEmpty())
-	@UI({
+	@Field.Relationship({
+		ref: 'Cat',
 		tab: 'Relations',
-		type: 'relationship',
 		description: 'Cat this record belongs to',
 	})
+	@Field.Validators(IsNotEmpty())
 	cat!: string
 
 	// Many-to-One relation with Veterinarian
@@ -33,48 +33,43 @@ export class MedicalRecord {
 		ref: 'Veterinarian',
 		required: false,
 	})
-	@Validators(IsOptional())
-	@UI({
+	@Field.Relationship({
+		ref: 'Veterinarian',
 		tab: 'Relations',
-		type: 'relationship',
 		description: 'Veterinarian who performed this record',
 	})
+	@Field.Validators(IsOptional())
 	veterinarian?: string
 
 	@Type(() => Date)
-	@Prop({ required: true })
-	@Validators(IsDate(), IsNotEmpty())
-	@UI({ tab: 'General', type: 'date', row: true })
+	@Field.Date({ required: true, tab: 'General', row: true })
+	@Field.Validators(IsDate(), IsNotEmpty())
 	date!: Date
 
-	@Prop({ required: true })
-	@Validators(IsString(), Length(2, 50), IsNotEmpty())
-	@UI({
+	@Field.Select({
+		required: true,
 		tab: 'General',
-		type: 'select',
-		options: [
-			{ key: 'checkup', value: 'Checkup' },
-			{ key: 'vaccination', value: 'Vaccination' },
-			{ key: 'surgery', value: 'Surgery' },
-			{ key: 'treatment', value: 'Treatment' },
-			{ key: 'emergency', value: 'Emergency' },
-		],
 		row: true,
+		options: [
+			{ label: 'Checkup', value: 'checkup' },
+			{ label: 'Vaccination', value: 'vaccination' },
+			{ label: 'Surgery', value: 'surgery' },
+			{ label: 'Treatment', value: 'treatment' },
+			{ label: 'Emergency', value: 'emergency' },
+		],
 	})
+	@Field.Validators(IsString(), Length(2, 50), IsNotEmpty())
 	type!: string
 
-	@Prop({ required: true })
-	@Validators(IsString(), Length(10, 1000), IsNotEmpty())
-	@UI({ tab: 'General' })
+	@Field.Text({ required: true, tab: 'General' })
+	@Field.Validators(IsString(), Length(10, 1000), IsNotEmpty())
 	description!: string
 
-	@Prop({ required: false })
-	@Validators(IsNumber(), Min(0), IsOptional())
-	@UI({ tab: 'General', type: 'number' })
+	@Field.Number({ required: false, tab: 'General' })
+	@Field.Validators(IsNumber(), Min(0), IsOptional())
 	cost?: number
 
-	@Prop({ required: false, type: [String] })
-	@Validators(IsOptional())
-	@UI({ tab: 'General' })
+	@Field.Tags({ required: false, tab: 'General' })
+	@Field.Validators(IsOptional())
 	medications?: string[]
 }

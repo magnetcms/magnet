@@ -1,35 +1,40 @@
-import { Prop, Setting, UI } from '@magnet-cms/common'
-
-const draftOptions = [
-	{ key: 'Enabled', value: 'true' },
-	{ key: 'Disabled', value: 'false' },
-]
-
-const approvalOptions = [
-	{ key: 'Required', value: 'true' },
-	{ key: 'Not Required', value: 'false' },
-]
-
-const autoPublishOptions = [
-	{ key: 'Enabled', value: 'true' },
-	{ key: 'Disabled', value: 'false' },
-]
+import { Field, Setting } from '@magnet-cms/common'
 
 @Setting()
 export class Versioning {
-	@UI({ tab: 'Versioning' })
-	@Prop({ required: true, default: 10 })
+	@Field.Number({ required: true, default: 10, tab: 'Versioning' })
 	maxVersions!: number
 
-	@UI({ tab: 'Versioning', type: 'select', options: draftOptions })
-	@Prop({ required: true, default: 'true' })
+	@Field.Select({
+		required: true,
+		default: 'true',
+		tab: 'Versioning',
+		options: [
+			{ label: 'Enabled', value: 'true' },
+			{ label: 'Disabled', value: 'false' },
+		],
+	})
 	draftsEnabled!: string
 
-	@UI({ tab: 'Versioning', type: 'select', options: approvalOptions })
-	@Prop({ required: true, default: 'false' })
+	@Field.Select({
+		required: true,
+		default: 'false',
+		tab: 'Versioning',
+		options: [
+			{ label: 'Required', value: 'true' },
+			{ label: 'Not Required', value: 'false' },
+		],
+	})
 	requireApproval!: string
 
-	@UI({ tab: 'Versioning', type: 'select', options: autoPublishOptions })
-	@Prop({ required: true, default: 'false' })
+	@Field.Select({
+		required: true,
+		default: 'false',
+		tab: 'Versioning',
+		options: [
+			{ label: 'Enabled', value: 'true' },
+			{ label: 'Disabled', value: 'false' },
+		],
+	})
 	autoPublish!: string
 }

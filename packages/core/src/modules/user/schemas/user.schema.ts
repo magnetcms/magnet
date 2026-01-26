@@ -1,4 +1,4 @@
-import { Prop, Schema, UI, Validators } from '@magnet-cms/common'
+import { Field, Schema } from '@magnet-cms/common'
 import { hash } from 'bcryptjs'
 import {
 	IsEmail,
@@ -10,31 +10,27 @@ import {
 
 @Schema({ versioning: false, i18n: false })
 export class User {
-	@Prop({ required: true, unique: true })
-	@Validators(IsEmail(), IsNotEmpty())
-	@UI({ tab: 'General', type: 'email', row: true })
+	@Field.Email({ required: true, unique: true, tab: 'General' })
+	@Field.Validators(IsEmail(), IsNotEmpty())
 	email!: string
 
-	@Prop({ required: true })
-	@Validators(IsString(), Length(6, 100), IsNotEmpty())
+	@Field.Text({ required: true, hidden: true })
+	@Field.Validators(IsString(), Length(6, 100), IsNotEmpty())
 	password!: string
 
-	@Prop({ required: true })
-	@Validators(IsString(), Length(2, 100), IsNotEmpty())
-	@UI({ tab: 'General', row: true })
+	@Field.Text({ required: true, tab: 'General' })
+	@Field.Validators(IsString(), Length(2, 100), IsNotEmpty())
 	name!: string
 
-	@Prop({ required: false })
-	@Validators(IsString(), IsOptional())
-	@UI({
+	@Field.Select({
 		tab: 'General',
-		type: 'select',
 		options: [
-			{ key: 'admin', value: 'Admin' },
-			{ key: 'editor', value: 'Editor' },
-			{ key: 'viewer', value: 'Viewer' },
+			{ label: 'Admin', value: 'admin' },
+			{ label: 'Editor', value: 'editor' },
+			{ label: 'Viewer', value: 'viewer' },
 		],
 	})
+	@Field.Validators(IsString(), IsOptional())
 	role?: string
 
 	async hashPassword() {

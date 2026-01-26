@@ -1,4 +1,4 @@
-import { Prop, Schema, UI, Validators } from '@magnet-cms/common'
+import { Field, Schema } from '@magnet-cms/common'
 import { Type } from 'class-transformer'
 import {
 	IsBoolean,
@@ -14,85 +14,96 @@ import {
 
 @Schema()
 export class Cat {
-	@Prop({ unique: true, required: true })
-	@Validators(IsString(), Length(10, 20), IsNotEmpty())
-	@UI({ tab: 'General', row: true })
+	@Field.Text({ unique: true, required: true, tab: 'General', row: true })
+	@Field.Validators(IsString(), Length(10, 20), IsNotEmpty())
 	tagID: string
 
-	@Prop({ required: true, intl: true })
-	@Validators(IsString(), Length(2, 255), IsNotEmpty())
-	@UI({ tab: 'General', row: true, description: 'Cat name' })
+	@Field.Text({
+		required: true,
+		intl: true,
+		tab: 'General',
+		row: true,
+		description: 'Cat name',
+	})
+	@Field.Validators(IsString(), Length(2, 255), IsNotEmpty())
 	name: string
 
 	@Type(() => Date)
-	@Prop({ required: true })
-	@Validators(IsDate(), IsNotEmpty())
-	@UI({ tab: 'General', type: 'date', row: true })
+	@Field.Date({ required: true, tab: 'General', row: true })
+	@Field.Validators(IsDate(), IsNotEmpty())
 	birthdate: Date
 
-	@Prop({ required: true, intl: true })
-	@Validators(IsString(), Length(2, 50), IsNotEmpty())
-	@UI({ tab: 'General', description: 'Breed of the cat' })
+	@Field.Text({
+		required: true,
+		intl: true,
+		tab: 'General',
+		description: 'Breed of the cat',
+	})
+	@Field.Validators(IsString(), Length(2, 50), IsNotEmpty())
 	breed: string
 
-	@Prop({ required: false, intl: true })
-	@Validators(IsString(), IsOptional())
-	@UI({ tab: 'General', description: 'Additional description' })
+	@Field.Text({
+		required: false,
+		intl: true,
+		tab: 'General',
+		description: 'Additional description',
+	})
+	@Field.Validators(IsString(), IsOptional())
 	description?: string
 
-	@Prop({ required: true })
-	@Validators(IsNumber(), Min(0.5), Max(15), IsNotEmpty())
-	@UI({ tab: 'General', type: 'number', description: 'Weight in kg' })
+	@Field.Number({
+		required: true,
+		tab: 'General',
+		description: 'Weight in kg',
+	})
+	@Field.Validators(IsNumber(), Min(0.5), Max(15), IsNotEmpty())
 	weight: number
 
 	// Many-to-One relation with Owner (using UUID/string for drizzle)
-	@Prop({
-		type: String,
+	@Field.Relationship({
+		ref: 'Owner',
 		required: true,
+		tab: 'Relations',
+		description: 'Cat owner',
 	})
-	@Validators(IsNotEmpty())
-	@UI({ tab: 'Relations', type: 'relationship', description: 'Cat owner' })
+	@Field.Validators(IsNotEmpty())
 	owner!: string
 
 	// Many-to-Many relation with Veterinarian (array of UUIDs for drizzle)
-	@Prop({
-		type: [String],
+	@Field.Relationship({
+		ref: 'Veterinarian',
 		required: false,
 		default: [],
-	})
-	@Validators(IsOptional())
-	@UI({
 		tab: 'Relations',
-		type: 'relationship',
 		description: 'Veterinarians treating this cat',
 	})
+	@Field.Validators(IsOptional())
 	veterinarians?: string[]
 
 	// One-to-One relation with Media (main photo)
-	@Prop({
-		type: String,
+	@Field.Image({
 		required: false,
+		tab: 'Media',
+		description: 'Main photo',
 	})
-	@Validators(IsOptional())
-	@UI({ tab: 'Media', type: 'upload', description: 'Main photo' })
+	@Field.Validators(IsOptional())
 	photo?: string
 
 	// One-to-Many relation with Media (gallery)
-	@Prop({
-		type: [String],
+	@Field.Image({
 		required: false,
 		default: [],
+		tab: 'Media',
+		description: 'Additional photos',
 	})
-	@Validators(IsOptional())
-	@UI({ tab: 'Media', type: 'upload', description: 'Additional photos' })
+	@Field.Validators(IsOptional())
 	photos?: string[]
 
-	@Prop({ required: true })
-	@Validators(IsBoolean())
-	@UI({
+	@Field.Boolean({
+		required: true,
 		tab: 'General',
-		type: 'switch',
 		description: 'Is the cat castrated?',
 	})
+	@Field.Validators(IsBoolean())
 	castrated: boolean
 }

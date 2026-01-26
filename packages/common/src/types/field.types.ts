@@ -28,6 +28,10 @@ export interface BaseFieldOptions {
 	order?: number
 	/** Show field in sidebar (instead of main content area) */
 	side?: boolean
+	/** Display fields in a row layout */
+	row?: boolean
+	/** Enable internationalization for this field */
+	intl?: boolean
 }
 
 /**
@@ -65,7 +69,7 @@ export interface BooleanFieldOptions extends BaseFieldOptions {
 export interface DateFieldOptions extends BaseFieldOptions {
 	min?: Date | string
 	max?: Date | string
-	default?: Date | string | 'now'
+	default?: Date | string | 'now' | (() => Date)
 }
 
 /**
@@ -110,18 +114,17 @@ export interface JSONFieldOptions extends BaseFieldOptions {
 /**
  * Select option item
  */
-export interface SelectOptionItem<T extends string | number = string> {
+export interface SelectOptionItem {
 	label: string
-	value: T
+	value: string | number
 }
 
 /**
- * Select field options - generic preserves option value types
+ * Select field options
  */
-export interface SelectFieldOptions<T extends string | number = string>
-	extends BaseFieldOptions {
-	options: ReadonlyArray<SelectOptionItem<T>> | ReadonlyArray<T>
-	default?: T
+export interface SelectFieldOptions extends BaseFieldOptions {
+	options: ReadonlyArray<SelectOptionItem> | ReadonlyArray<string | number>
+	default?: string | number | (string | number)[]
 	multiple?: boolean
 }
 

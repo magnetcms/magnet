@@ -1,4 +1,4 @@
-import { Mixed, Prop, Schema } from '@magnet-cms/common'
+import { Field, Mixed, Prop, Schema } from '@magnet-cms/common'
 
 /**
  * Media schema for storing file metadata.
@@ -6,48 +6,49 @@ import { Mixed, Prop, Schema } from '@magnet-cms/common'
  */
 @Schema({ versioning: false, i18n: false })
 export class Media {
-	@Prop({ required: true, unique: true })
+	@Field.Text({ required: true, unique: true })
 	filename!: string
 
-	@Prop({ required: true })
+	@Field.Text({ required: true })
 	originalFilename!: string
 
-	@Prop({ required: true })
+	@Field.Text({ required: true })
 	mimeType!: string
 
-	@Prop({ required: true })
+	@Field.Number({ required: true })
 	size!: number
 
-	@Prop({ required: true })
+	@Field.Text({ required: true })
 	path!: string
 
-	@Prop({ required: true })
+	@Field.Text({ required: true })
 	url!: string
 
-	@Prop()
+	@Field.Text()
 	folder?: string
 
-	@Prop({ type: [String], default: [] })
+	@Field.Tags({ default: [] })
 	tags?: string[]
 
-	@Prop()
+	@Field.Text()
 	alt?: string
 
-	@Prop()
+	@Field.Number()
 	width?: number
 
-	@Prop()
+	@Field.Number()
 	height?: number
 
+	// Mixed type for arbitrary values - keep as @Prop
 	@Prop({ type: Mixed })
 	customFields?: Record<string, unknown>
 
-	@Prop({ default: () => new Date() })
+	@Field.Date({ default: () => new Date() })
 	createdAt!: Date
 
-	@Prop({ default: () => new Date() })
+	@Field.Date({ default: () => new Date() })
 	updatedAt!: Date
 
-	@Prop()
+	@Field.Text()
 	createdBy?: string
 }

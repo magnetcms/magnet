@@ -1,36 +1,32 @@
-import { Prop, Schema, UI, Validators } from '@magnet-cms/common'
+import { Field, Schema } from '@magnet-cms/common'
 import { IsNotEmpty, IsOptional, IsString, Length } from 'class-validator'
 
 @Schema()
 export class Veterinarian {
-	@Prop({ required: true })
-	@Validators(IsString(), Length(2, 100), IsNotEmpty())
-	@UI({ tab: 'General', row: true })
+	@Field.Text({ required: true, tab: 'General', row: true })
+	@Field.Validators(IsString(), Length(2, 100), IsNotEmpty())
 	name!: string
 
-	@Prop({ required: true })
-	@Validators(IsString(), Length(2, 200), IsNotEmpty())
-	@UI({ tab: 'General', row: true })
+	@Field.Text({ required: true, tab: 'General', row: true })
+	@Field.Validators(IsString(), Length(2, 200), IsNotEmpty())
 	clinic!: string
 
-	@Prop({ required: true, unique: true })
-	@Validators(IsString(), Length(5, 50), IsNotEmpty())
-	@UI({ tab: 'General' })
+	@Field.Text({ required: true, unique: true, tab: 'General' })
+	@Field.Validators(IsString(), Length(5, 50), IsNotEmpty())
 	licenseNumber!: string
 
-	@Prop({ required: false })
-	@Validators(IsString(), IsOptional())
-	@UI({
+	@Field.Select({
+		required: false,
 		tab: 'General',
-		type: 'select',
 		options: [
-			{ key: 'general', value: 'General Practice' },
-			{ key: 'surgery', value: 'Surgery' },
-			{ key: 'dentistry', value: 'Dentistry' },
-			{ key: 'dermatology', value: 'Dermatology' },
-			{ key: 'cardiology', value: 'Cardiology' },
+			{ label: 'General Practice', value: 'general' },
+			{ label: 'Surgery', value: 'surgery' },
+			{ label: 'Dentistry', value: 'dentistry' },
+			{ label: 'Dermatology', value: 'dermatology' },
+			{ label: 'Cardiology', value: 'cardiology' },
 		],
 	})
+	@Field.Validators(IsString(), IsOptional())
 	specialization?: string
 
 	// Many-to-Many relation with Cat

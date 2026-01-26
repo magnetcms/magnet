@@ -202,10 +202,8 @@ export const Field = {
 	 * status: string
 	 * ```
 	 */
-	Select: <T extends string | number = string>(
-		options: SelectFieldOptions<T>,
-	): PropertyDecorator =>
-		createFieldDecorator<SelectFieldOptions<T>>('select')(options),
+	Select: (options: SelectFieldOptions): PropertyDecorator =>
+		createFieldDecorator<SelectFieldOptions>('select')(options),
 
 	/**
 	 * Enum field - dropdown from TypeScript enum

@@ -1,4 +1,4 @@
-import { Prop, Setting, UI } from '@magnet-cms/common'
+import { Field, Prop, Setting, UI } from '@magnet-cms/common'
 import { IsArray } from 'class-validator'
 
 export interface EnvironmentItem {
@@ -12,8 +12,10 @@ export interface EnvironmentItem {
 
 @Setting()
 export class Environments {
+	// Table UI type is complex and not yet supported by Field decorators
+	// Keep using @Prop/@UI for now
 	@Prop({ required: false, default: [] })
-	@IsArray()
+	@Field.Validators(IsArray())
 	@UI({
 		type: 'table',
 		label: 'Environments',

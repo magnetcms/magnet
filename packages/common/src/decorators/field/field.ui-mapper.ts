@@ -51,8 +51,8 @@ function mapFieldTypeToUIType(type: FieldTypeId): UITypes {
 /**
  * Convert field options to UISelectItem format
  */
-function convertToUISelectItems<T extends string | number>(
-	options: ReadonlyArray<SelectOptionItem<T>> | ReadonlyArray<T>,
+function convertToUISelectItems(
+	options: ReadonlyArray<SelectOptionItem> | ReadonlyArray<string | number>,
 ): UISelectItem[] {
 	return options.map((opt) => {
 		if (

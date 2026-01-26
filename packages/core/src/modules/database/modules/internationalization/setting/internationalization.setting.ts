@@ -1,43 +1,43 @@
-import { Prop, Setting, UI } from '@magnet-cms/common'
+import { Field, Setting } from '@magnet-cms/common'
 
 export const locales = [
-	{ key: 'English', value: 'en' },
-	{ key: 'Spanish', value: 'es' },
-	{ key: 'French', value: 'fr' },
-	{ key: 'German', value: 'de' },
-	{ key: 'Italian', value: 'it' },
-	{ key: 'Portuguese', value: 'pt' },
-	{ key: 'Russian', value: 'ru' },
-	{ key: 'Chinese', value: 'zh' },
-	{ key: 'Japanese', value: 'ja' },
-	{ key: 'Korean', value: 'ko' },
-	{ key: 'Arabic', value: 'ar' },
+	{ label: 'English', value: 'en' },
+	{ label: 'Spanish', value: 'es' },
+	{ label: 'French', value: 'fr' },
+	{ label: 'German', value: 'de' },
+	{ label: 'Italian', value: 'it' },
+	{ label: 'Portuguese', value: 'pt' },
+	{ label: 'Russian', value: 'ru' },
+	{ label: 'Chinese', value: 'zh' },
+	{ label: 'Japanese', value: 'ja' },
+	{ label: 'Korean', value: 'ko' },
+	{ label: 'Arabic', value: 'ar' },
 ]
 
 export const timezones = [
-	{ key: 'UTC', value: 'utc' },
-	{ key: 'Local', value: 'local' },
+	{ label: 'UTC', value: 'utc' },
+	{ label: 'Local', value: 'local' },
 ]
 
 @Setting()
 export class Internationalization {
-	@Prop({ required: true, default: 'en' })
-	@UI({ type: 'select', options: locales })
+	@Field.Select({ required: true, default: 'en', options: locales })
 	defaultLocale!: string
 
-	@Prop({ required: true, default: ['en'] })
-	@UI({ type: 'select', options: locales, multi: true })
+	@Field.Select({
+		required: true,
+		default: ['en'],
+		options: locales,
+		multiple: true,
+	})
 	locales!: string[]
 
-	@Prop({ required: true, default: 'utc' })
-	@UI({ type: 'select', options: timezones })
+	@Field.Select({ required: true, default: 'utc', options: timezones })
 	timezone!: string
 
-	@Prop({ required: false, default: false })
-	@UI({ type: 'checkbox', side: true })
+	@Field.Boolean({ required: false, default: false })
 	autoDetectLocale!: boolean
 
-	@Prop({ required: false, default: false })
-	@UI({ type: 'checkbox', side: true })
+	@Field.Boolean({ required: false, default: false })
 	fallbackToDefaultLocale!: boolean
 }
