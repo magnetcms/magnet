@@ -5,11 +5,13 @@ import { JwtModule, type JwtModuleOptions } from '@nestjs/jwt'
 import { PassportModule } from '@nestjs/passport'
 import type { StringValue } from 'ms'
 import { DatabaseModule } from '~/modules/database'
+import { SettingsModule } from '~/modules/settings'
 import { UserModule, UserService } from '~/modules/user'
 import { AuthStrategyFactory } from './auth-strategy.factory'
 import { AUTH_CONFIG, AUTH_STRATEGY } from './auth.constants'
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
+import { AuthSettings } from './auth.settings'
 import { JwtAuthStrategy } from './strategies/jwt-auth.strategy'
 
 @Module({})
@@ -45,6 +47,7 @@ export class AuthModule {
 			imports: [
 				DatabaseModule,
 				UserModule,
+				SettingsModule.forFeature(AuthSettings),
 				// Always use 'jwt' as default strategy for guards (JwtAuthGuard)
 				PassportModule.register({ defaultStrategy: 'jwt' }),
 				JwtModule.registerAsync({

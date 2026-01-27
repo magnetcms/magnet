@@ -1,93 +1,60 @@
-import { Model, getModelToken } from '@magnet-cms/common'
-import { DynamicModule, Module, Type, forwardRef } from '@nestjs/common'
-import { ModuleRef } from '@nestjs/core'
+import { getSettingsOptions } from '@magnet-cms/common'
+import {
+	DynamicModule,
+	Logger,
+	Module,
+	OnModuleInit,
+	Type,
+} from '@nestjs/common'
 import { DatabaseModule } from '~/modules/database'
 import { Setting } from './schemas/setting.schema'
 import { SettingsController } from './settings.controller'
 import { SettingsService } from './settings.service'
 
-@Module({
-	imports: [
-		forwardRef(() => DatabaseModule),
-		forwardRef(() => DatabaseModule.forFeature(Setting)),
-	],
-	controllers: [SettingsController],
-	providers: [
-		{
-			provide: 'SETTING_MODEL',
-			useFactory: async (moduleRef: ModuleRef) => {
-				await new Promise((resolve) => setTimeout(resolve, 1000))
+/**
+ * Settings initializer service that registers settings with defaults on module init
+ */
+class SettingsInitializer implements OnModuleInit {
+	private readonly logger = new Logger('SettingsInitializer')
 
+	constructor(
+		private readonly settingsService: SettingsService,
+		private readonly schemas: Type[],
+	) {}
+
+	async onModuleInit() {
+		for (const schema of this.schemas) {
+			const options = getSettingsOptions(schema)
+			if (options) {
+				this.logger.log(`Initializing settings for group: ${options.group}`)
 				try {
-					const settingModel = await moduleRef.get(getModelToken(Setting), {
-						strict: false,
-					})
-
-					if (!settingModel) {
-						throw new Error(`Model for ${Setting.name} not found`)
-					}
-
-					return settingModel
+					await this.settingsService.registerSettingsFromSchema(
+						options.group,
+						schema,
+					)
 				} catch (error) {
-					console.error('Error getting Setting model:', error)
-					throw error
+					this.logger.warn(
+						`Failed to initialize settings for ${options.group}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+					)
 				}
-			},
-			inject: [ModuleRef],
-		},
-		{
-			provide: SettingsService,
-			useFactory: (settingModel: Model<Setting>) => {
-				return new SettingsService(settingModel)
-			},
-			inject: ['SETTING_MODEL'],
-		},
-	],
-	exports: [
-		forwardRef(() => DatabaseModule.forFeature(Setting)),
-		SettingsService,
-	],
+			}
+		}
+	}
+}
+
+@Module({
+	imports: [DatabaseModule, DatabaseModule.forFeature(Setting)],
+	controllers: [SettingsController],
+	providers: [SettingsService],
+	exports: [DatabaseModule.forFeature(Setting), SettingsService],
 })
 export class SettingsModule {
 	static forRoot(): DynamicModule {
 		return {
 			module: SettingsModule,
 			global: true,
-			imports: [
-				forwardRef(() => DatabaseModule),
-				forwardRef(() => DatabaseModule.forFeature(Setting)),
-			],
-			providers: [
-				{
-					provide: 'SETTING_MODEL',
-					useFactory: async (moduleRef: ModuleRef) => {
-						await new Promise((resolve) => setTimeout(resolve, 1000))
-
-						try {
-							const settingModel = await moduleRef.get(getModelToken(Setting), {
-								strict: false,
-							})
-
-							if (!settingModel) {
-								throw new Error(`Model for ${Setting.name} not found`)
-							}
-
-							return settingModel
-						} catch (error) {
-							console.error('Error getting Setting model:', error)
-							throw error
-						}
-					},
-					inject: [ModuleRef],
-				},
-				{
-					provide: SettingsService,
-					useFactory: (settingModel: Model<Setting>) => {
-						return new SettingsService(settingModel)
-					},
-					inject: ['SETTING_MODEL'],
-				},
-			],
+			imports: [DatabaseModule, DatabaseModule.forFeature(Setting)],
+			providers: [SettingsService],
 			exports: [SettingsService],
 		}
 	}
@@ -95,26 +62,25 @@ export class SettingsModule {
 	static forFeature(schemas: Type | Type[]): DynamicModule {
 		const schemaArray = Array.isArray(schemas) ? schemas : [schemas]
 
-		const settingsRegistrations = schemaArray.flatMap((schema: Type) => [
-			{
-				provide: `${schema.name}_SETTING_REGISTRATION`,
-				useFactory: async (settingsService: SettingsService): Promise<Type> => {
-					// Use lowercase group name to match frontend URL conventions
-					const groupName = schema.name.toLowerCase()
-					await settingsService.registerSettingsFromSchema(groupName, schema)
-					return schema
-				},
-				inject: [SettingsService],
+		// Register schemas as class providers for discovery service to find
+		// Using useClass allows the discovery service to inspect the metatype
+		const settingsRegistrations = schemaArray.map((schema: Type) => ({
+			provide: `SETTINGS_SCHEMA_${schema.name.toUpperCase()}`,
+			useClass: schema,
+		}))
+
+		// Create initializer provider that registers settings with defaults
+		const initializerProvider = {
+			provide: `SETTINGS_INITIALIZER_${schemaArray.map((s) => s.name).join('_')}`,
+			useFactory: (settingsService: SettingsService) => {
+				return new SettingsInitializer(settingsService, schemaArray)
 			},
-			{
-				provide: getModelToken(schema),
-				useClass: schema,
-			},
-		])
+			inject: [SettingsService],
+		}
 
 		return {
 			module: SettingsModule,
-			providers: [...settingsRegistrations],
+			providers: [...settingsRegistrations, initializerProvider],
 			exports: [...settingsRegistrations],
 		}
 	}

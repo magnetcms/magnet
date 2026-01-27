@@ -1,5 +1,6 @@
 import { Type } from '@nestjs/common'
 import { SchemaOptions } from './decorator.types'
+import { SettingsDecoratorOptions } from './settings.types'
 import { UIDecoratorOptions } from './ui.types'
 
 export type MethodMetadata = {
@@ -50,4 +51,6 @@ export type SchemaMetadata = {
 	displayName?: string // title case name for display (e.g., "Medical Record")
 	properties: SchemaProperty[]
 	options?: SchemaOptions
+	/** Settings-specific options (only present for settings schemas) */
+	settingsOptions?: SettingsDecoratorOptions
 }

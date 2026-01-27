@@ -1,5 +1,6 @@
 export * from './dto/create-user.dto'
 export * from './schemas/user.schema'
 export * from './user.controller'
+export * from './user-extension.service'
 export * from './user.module'
 export * from './user.service'

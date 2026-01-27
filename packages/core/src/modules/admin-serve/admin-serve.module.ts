@@ -22,15 +22,30 @@ export interface AdminServeOptions {
  * Resolves admin dist path from multiple locations
  */
 function resolveAdminDistPath(customPath?: string): string | null {
+	// Helper to check for client subdirectory
+	const checkClientDir = (basePath: string): string | null => {
+		const clientPath = join(basePath, 'client')
+		if (existsSync(join(clientPath, 'index.html'))) {
+			return clientPath
+		}
+		// Fallback to base path if it has index.html directly
+		if (existsSync(join(basePath, 'index.html'))) {
+			return basePath
+		}
+		return null
+	}
+
 	// 1. Custom path from config
 	if (customPath && existsSync(customPath)) {
-		return resolve(customPath)
+		const resolvedPath = checkClientDir(customPath)
+		if (resolvedPath) return resolve(resolvedPath)
 	}
 
 	// 2. Environment variable
 	const envPath = process.env.MAGNET_ADMIN_PATH
 	if (envPath && existsSync(envPath)) {
-		return resolve(envPath)
+		const resolvedPath = checkClientDir(envPath)
+		if (resolvedPath) return resolve(resolvedPath)
 	}
 
 	// 3. node_modules (traverse up to find it)
@@ -44,7 +59,8 @@ function resolveAdminDistPath(customPath?: string): string | null {
 			'dist',
 		)
 		if (existsSync(nodeModulesPath)) {
-			return nodeModulesPath
+			const resolvedPath = checkClientDir(nodeModulesPath)
+			if (resolvedPath) return resolvedPath
 		}
 		currentDir = resolve(currentDir, '..')
 	}
@@ -65,7 +81,8 @@ function resolveAdminDistPath(customPath?: string): string | null {
 	]
 	for (const pattern of monorepoPatterns) {
 		if (existsSync(pattern)) {
-			return resolve(pattern)
+			const resolvedPath = checkClientDir(pattern)
+			if (resolvedPath) return resolve(resolvedPath)
 		}
 	}
 

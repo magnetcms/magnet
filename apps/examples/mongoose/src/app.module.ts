@@ -18,6 +18,7 @@ import { VeterinariansModule } from './modules/veterinarians/veterinarians.modul
 			jwt: {
 				secret: process.env.JWT_SECRET || 'development-secret-key',
 			},
+			admin: true,
 			plugins: [{ plugin: ContentBuilderPlugin }],
 		}),
 		CatsModule,

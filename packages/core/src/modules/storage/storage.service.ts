@@ -6,6 +6,7 @@ import {
 	type StorageAdapter,
 	type TransformOptions,
 	type UploadOptions,
+	getModelToken,
 } from '@magnet-cms/common'
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { ModuleRef } from '@nestjs/core'
@@ -34,9 +35,10 @@ export class StorageService implements OnModuleInit {
 	private getMediaModel(): Model<Media> {
 		if (!this.mediaModel) {
 			try {
-				this.mediaModel = this.moduleRef.get<Model<Media>>('MagnetMediaModel', {
-					strict: false,
-				})
+				this.mediaModel = this.moduleRef.get<Model<Media>>(
+					getModelToken(Media),
+					{ strict: false },
+				)
 			} catch {
 				throw new Error(
 					'Media model not found. Make sure the Media schema is registered.',

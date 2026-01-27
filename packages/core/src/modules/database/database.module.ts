@@ -40,15 +40,14 @@ export class DatabaseModule {
 				{
 					provide: getModelToken(schema),
 					useFactory: async (moduleRef: ModuleRef) => {
-						await new Promise((resolve) => setTimeout(resolve, 500))
-
-						const modelInstance = await moduleRef.get(
-							adapter.token(schema.name),
-							{
+						// Pass a factory function to createModel instead of the model directly
+						// This allows lazy loading of the Mongoose model
+						const modelFactory = async () => {
+							return await moduleRef.get(adapter.token(schema.name), {
 								strict: false,
-							},
-						)
-						return new (adapter.model(modelInstance))()
+							})
+						}
+						return new (adapter.model(modelFactory))()
 					},
 					inject: [ModuleRef],
 					scope: Scope.DEFAULT,

@@ -6,7 +6,6 @@ import {
 	DatabaseAdapter,
 	MagnetModuleOptions,
 	MongooseConfig,
-	getModelToken,
 	getSchemaOptions,
 } from '@magnet-cms/common'
 import { DynamicModule, Injectable, Type } from '@nestjs/common'
@@ -71,7 +70,9 @@ class MongooseAdapter extends DatabaseAdapter {
 	}
 
 	token(schema: string): string {
-		return getModelToken(schema)
+		// Use NestJS Mongoose's token pattern: `${name}Model`
+		// This matches what MongooseModule.forFeature() uses internally
+		return `${schema}Model`
 	}
 
 	/**

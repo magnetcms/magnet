@@ -19,6 +19,9 @@ export class SettingsController {
 		return this.settingsService.getSettings()
 	}
 
+	/**
+	 * Get all settings for a group as an array
+	 */
 	@Get(':group')
 	async getSettings(@Param('group') group: string) {
 		return this.settingsService.getSettingsByGroup(group)
@@ -48,7 +51,10 @@ export class SettingsController {
 			const results: SettingsRecord = {}
 
 			// Update each setting in the group
-			for (const [key, value] of Object.entries(data)) {
+			for (const [key, value] of Object.entries(data) as [
+				string,
+				SettingValue,
+			][]) {
 				const updated = await this.settingsService.updateSetting(key, value)
 				if (updated) {
 					results[key] = updated.value

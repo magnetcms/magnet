@@ -1,5 +1,6 @@
 export * from './storage.module'
 export * from './storage.service'
+export * from './storage.settings'
 export * from './storage.constants'
 export * from './storage-adapter.factory'
 export * from './adapters/local-storage.adapter'

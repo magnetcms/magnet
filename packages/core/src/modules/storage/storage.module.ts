@@ -1,11 +1,13 @@
 import { StorageConfig } from '@magnet-cms/common'
 import { DynamicModule, Module } from '@nestjs/common'
 import { DatabaseModule } from '~/modules/database'
+import { SettingsModule } from '~/modules/settings'
 import { Media } from './schemas/media.schema'
 import { StorageAdapterFactory } from './storage-adapter.factory'
 import { STORAGE_ADAPTER, STORAGE_CONFIG } from './storage.constants'
 import { StorageController } from './storage.controller'
 import { StorageService } from './storage.service'
+import { MediaSettings } from './storage.settings'
 import { TransformController } from './transform.controller'
 
 @Module({})
@@ -20,7 +22,10 @@ export class StorageModule {
 		return {
 			module: StorageModule,
 			global: true,
-			imports: [DatabaseModule.forFeature(Media)],
+			imports: [
+				DatabaseModule.forFeature(Media),
+				SettingsModule.forFeature(MediaSettings),
+			],
 			controllers: [StorageController, TransformController],
 			providers: [
 				{

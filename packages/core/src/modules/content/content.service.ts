@@ -82,9 +82,10 @@ export class ContentService {
 				s.name.toLowerCase() === schemaName.toLowerCase(),
 		)
 
-		// If found, use the original class name from metadata
+		// If found, use the original class name from metadata with correct token pattern
 		if (found?.className) {
-			const token = `Magnet${found.className}Model`
+			// Use the MAGNET_MODEL_* token pattern that DatabaseModule.forFeature uses
+			const token = `MAGNET_MODEL_${found.className.toUpperCase()}`
 			try {
 				return this.moduleRef.get<Model<T>>(token, { strict: false })
 			} catch {
@@ -105,9 +106,9 @@ export class ContentService {
 				: null,
 		].filter(Boolean) as string[]
 
-		// Try each pattern
+		// Try each pattern with the correct token format
 		for (const pattern of patterns) {
-			const token = `Magnet${pattern}Model`
+			const token = `MAGNET_MODEL_${pattern.toUpperCase()}`
 			try {
 				return this.moduleRef.get<Model<T>>(token, { strict: false })
 			} catch {

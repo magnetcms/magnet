@@ -64,8 +64,10 @@ export class DiscoveryService implements OnModuleInit {
 	}
 
 	getDiscoveredSettingsSchemas(): string[] {
-		// Return lowercase names to match URL conventions
-		return this.settingsSchemas.map((schema) => schema.name.toLowerCase())
+		// Return apiName (group name from @Settings) for routing, fallback to lowercase name
+		return this.settingsSchemas.map(
+			(schema) => schema.apiName || schema.name.toLowerCase(),
+		)
 	}
 
 	getAllDiscoveredSettingsSchemas(): SchemaMetadata[] {
@@ -73,18 +75,23 @@ export class DiscoveryService implements OnModuleInit {
 	}
 
 	getDiscoveredSettingsSchemaNames(): string[] {
-		// Return lowercase names to match URL conventions
-		return this.settingsSchemas.map((schema) => schema.name.toLowerCase())
+		// Return apiName (group name from @Settings) for routing, fallback to lowercase name
+		return this.settingsSchemas.map(
+			(schema) => schema.apiName || schema.name.toLowerCase(),
+		)
 	}
 
 	getDiscoveredSettingsSchema(
 		name: string,
 	): SchemaMetadata | { error: string } {
-		// Case-insensitive lookup
+		// Case-insensitive lookup by apiName (group), name, or className
 		const lowerName = name.toLowerCase()
 		return (
 			this.settingsSchemas.find(
-				(schema) => schema.name.toLowerCase() === lowerName,
+				(schema) =>
+					schema.apiName?.toLowerCase() === lowerName ||
+					schema.name.toLowerCase() === lowerName ||
+					schema.className?.toLowerCase() === lowerName,
 			) || {
 				error: 'Schema not found',
 			}

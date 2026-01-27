@@ -6,11 +6,16 @@ import {
 	MethodMetadata,
 	PROP_METADATA_KEY,
 	RESOLVE_METADATA_KEY,
+	SETTINGS_OPTIONS_METADATA_KEY,
+	SETTING_FIELD_METADATA_KEY,
 	SchemaMetadata,
+	type SettingFieldMetadata,
+	type SettingsDecoratorOptions,
 	UIFieldMetadata,
 	UI_METADATA_KEY,
 	getSchemaOptions,
 	isFieldMetadata,
+	isSettingFieldMetadata,
 } from '@magnet-cms/common'
 import { Injectable, RequestMethod, Type } from '@nestjs/common'
 import {
@@ -101,6 +106,10 @@ export class MetadataExtractorService {
 		const fieldMetadata: unknown[] =
 			Reflect.getMetadata(FIELD_METADATA_KEY, metatype) ?? []
 
+		// Check for Settings field metadata (from @SettingField.* decorators)
+		const settingFieldMetadata: unknown[] =
+			Reflect.getMetadata(SETTING_FIELD_METADATA_KEY, metatype) ?? []
+
 		// Fall back to legacy Prop/UI metadata
 		const schemaProps: Array<{
 			propertyKey: string
@@ -114,13 +123,22 @@ export class MetadataExtractorService {
 			fieldMetadata.filter(isFieldMetadata).map((f) => String(f.propertyKey)),
 		)
 
-		// Process properties - prefer Field metadata when available
+		// Build a set of property keys that have Setting Field metadata
+		const settingFieldPropertyKeys = new Set(
+			settingFieldMetadata
+				.filter(isSettingFieldMetadata)
+				.map((f) => String(f.propertyKey)),
+		)
+
+		// Process properties - prefer Field metadata, then Setting Field metadata, then legacy
 		const properties = this.buildProperties(
 			metatype,
 			fieldMetadata,
 			schemaProps,
 			uiMetadata,
 			fieldPropertyKeys,
+			settingFieldMetadata,
+			settingFieldPropertyKeys,
 		)
 
 		// Convert PascalCase className to kebab-case for routes (e.g., "MedicalRecord" -> "medical-record")
@@ -134,19 +152,37 @@ export class MetadataExtractorService {
 			.map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
 			.join(' ')
 
+		// Get schema options (for regular schemas) or settings options (for settings schemas)
+		const schemaOptions = getSchemaOptions(metatype)
+		const settingsOptions: SettingsDecoratorOptions | undefined =
+			Reflect.getMetadata(SETTINGS_OPTIONS_METADATA_KEY, metatype)
+
+		// For settings schemas, use the label as display name if available
+		const finalDisplayName = settingsOptions?.label ?? displayName
+
 		return {
 			name: metatype.name.toLowerCase() ?? 'unknownschema',
 			className: metatype.name, // Store original class name for token lookup
-			apiName: kebabName, // kebab-case for routes
-			displayName, // Title case for display
+			apiName: settingsOptions?.group ?? kebabName, // Use settings group as apiName for settings
+			displayName: finalDisplayName, // Title case for display or settings label
 			properties,
-			options: getSchemaOptions(metatype),
+			options: schemaOptions,
+			// Include settings-specific metadata if available
+			...(settingsOptions && {
+				settingsOptions: {
+					group: settingsOptions.group,
+					label: settingsOptions.label,
+					icon: settingsOptions.icon,
+					description: settingsOptions.description,
+					order: settingsOptions.order,
+				},
+			}),
 		}
 	}
 
 	/**
-	 * Build schema properties from both Field metadata and legacy Prop/UI metadata.
-	 * Field metadata takes precedence when available.
+	 * Build schema properties from Field metadata, Setting Field metadata, and legacy Prop/UI metadata.
+	 * Priority: Field metadata > Setting Field metadata > legacy Prop/UI metadata
 	 */
 	private buildProperties(
 		metatype: Function,
@@ -157,6 +193,8 @@ export class MetadataExtractorService {
 		}>,
 		uiMetadata: UIFieldMetadata[],
 		fieldPropertyKeys: Set<string>,
+		settingFieldMetadata: unknown[] = [],
+		settingFieldPropertyKeys: Set<string> = new Set(),
 	): SchemaMetadata['properties'] {
 		const properties: SchemaMetadata['properties'] = []
 
@@ -183,9 +221,46 @@ export class MetadataExtractorService {
 			})
 		}
 
-		// Process legacy Prop/UI metadata for properties not covered by Field metadata
+		// Process Setting Field metadata (for @SettingField.* decorators)
+		for (const meta of settingFieldMetadata) {
+			if (!isSettingFieldMetadata(meta)) continue
+
+			const propertyKey = String(meta.propertyKey)
+			// Skip if already processed via Field metadata
+			if (fieldPropertyKeys.has(propertyKey)) continue
+
+			const designTypeMetadata = Reflect.getMetadata(
+				DESIGN_TYPE,
+				metatype.prototype,
+				propertyKey,
+			)
+
+			// Check if this is a multi-select field
+			const isMultiSelect =
+				meta.type === 'select' &&
+				'multiple' in meta.options &&
+				Boolean(meta.options.multiple)
+
+			properties.push({
+				name: propertyKey,
+				type: this.getTypeNameFromSettingFieldMetadata(
+					meta,
+					designTypeMetadata,
+				),
+				isArray: isMultiSelect,
+				unique: false,
+				required: false,
+				validations: this.getValidationMetadata(metatype, propertyKey),
+				ui: this.buildUIFromSettingFieldMetadata(meta),
+				ref: undefined,
+			})
+		}
+
+		// Process legacy Prop/UI metadata for properties not covered by Field or Setting Field metadata
 		for (const prop of schemaProps) {
-			if (fieldPropertyKeys.has(prop.propertyKey)) continue // Skip if already processed
+			// Skip if already processed via Field or Setting Field metadata
+			if (fieldPropertyKeys.has(prop.propertyKey)) continue
+			if (settingFieldPropertyKeys.has(prop.propertyKey)) continue
 
 			const uiField = uiMetadata.find(
 				(ui) => ui.propertyKey === prop.propertyKey,
@@ -397,6 +472,104 @@ export class MetadataExtractorService {
 			return meta.options.ref as string
 		}
 		return undefined
+	}
+
+	/**
+	 * Get the type name from setting field metadata
+	 */
+	private getTypeNameFromSettingFieldMetadata(
+		meta: SettingFieldMetadata,
+		designType: unknown,
+	): string {
+		// Map setting field type to a display-friendly type name
+		const typeMap: Record<string, string> = {
+			text: 'String',
+			number: 'Number',
+			boolean: 'Boolean',
+			select: 'String',
+			secret: 'String',
+			image: 'String',
+			json: 'Object',
+			textarea: 'String',
+		}
+
+		return typeMap[meta.type] ?? this.getTypeName(undefined, designType)
+	}
+
+	/**
+	 * Build UI options from setting field metadata
+	 */
+	private buildUIFromSettingFieldMetadata(
+		meta: SettingFieldMetadata,
+	): UIFieldMetadata['options'] | undefined {
+		const { options, type } = meta
+
+		// Build UI type mapping for settings
+		const uiTypeMap: Record<string, string> = {
+			text: 'text',
+			number: 'number',
+			boolean: 'switch',
+			select: 'select',
+			secret: 'password',
+			image: 'upload',
+			json: 'json',
+			textarea: 'textarea',
+		}
+
+		const uiOptions: Record<string, unknown> = {
+			type: uiTypeMap[type] ?? 'text',
+		}
+
+		// Copy relevant options from setting field options
+		if (options.label) uiOptions.label = options.label
+		if (options.description) uiOptions.description = options.description
+		if (options.hidden) uiOptions.hidden = options.hidden
+		if (options.readonly) uiOptions.readonly = options.readonly
+		if (options.default !== undefined) uiOptions.default = options.default
+
+		// Handle select options
+		if (type === 'select' && 'options' in options) {
+			uiOptions.options = this.convertSettingSelectOptions(
+				options as Record<string, unknown>,
+			)
+			// Handle multi-select
+			if ('multiple' in options && options.multiple) {
+				uiOptions.type = 'multiSelect'
+				uiOptions.multiple = true
+			}
+		}
+
+		// Handle secret/password masking
+		if (type === 'secret' && 'masked' in options) {
+			uiOptions.masked = options.masked
+		}
+
+		return uiOptions as UIFieldMetadata['options']
+	}
+
+	/**
+	 * Convert setting select options to UI format
+	 */
+	private convertSettingSelectOptions(
+		options: Record<string, unknown>,
+	): Array<{ key: string; value: string }> {
+		if ('options' in options && Array.isArray(options.options)) {
+			return options.options.map((opt: unknown) => {
+				if (
+					typeof opt === 'object' &&
+					opt !== null &&
+					'label' in opt &&
+					'value' in opt
+				) {
+					const typedOpt = opt as { label: string; value: string }
+					return { key: String(typedOpt.value), value: typedOpt.label }
+				}
+				// If it's just a string, use it as both key and value
+				return { key: String(opt), value: String(opt) }
+			})
+		}
+
+		return []
 	}
 
 	getParamDetails(controller: Function, methodName: string) {

@@ -123,7 +123,9 @@ export interface SettingSelectOptions extends SettingFieldBaseOptions {
 	options:
 		| ReadonlyArray<{ label: string; value: string }>
 		| ReadonlyArray<string>
-	default?: string
+	default?: string | string[]
+	/** Enable multi-select mode */
+	multiple?: boolean
 }
 
 /**
