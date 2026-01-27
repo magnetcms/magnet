@@ -91,4 +91,19 @@ export class AuthSettings {
 		default: false,
 	})
 	requireEmailVerification = false
+
+	@SettingField.Boolean({
+		label: 'Enable Session Management',
+		description: 'Track and manage active user sessions',
+		default: true,
+	})
+	enableSessions = true
+
+	@SettingField.Number({
+		label: 'Max Concurrent Sessions',
+		description:
+			'Maximum number of simultaneous sessions per user (0 = unlimited)',
+		default: 0,
+	})
+	maxConcurrentSessions = 0
 }

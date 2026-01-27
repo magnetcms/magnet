@@ -5,6 +5,7 @@ import { JwtModule, type JwtModuleOptions } from '@nestjs/jwt'
 import { PassportModule } from '@nestjs/passport'
 import type { StringValue } from 'ms'
 import { DatabaseModule } from '~/modules/database'
+import { EventsModule } from '~/modules/events'
 import { SettingsModule } from '~/modules/settings'
 import { UserModule, UserService } from '~/modules/user'
 import { AuthStrategyFactory } from './auth-strategy.factory'
@@ -12,6 +13,11 @@ import { AUTH_CONFIG, AUTH_STRATEGY } from './auth.constants'
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
 import { AuthSettings } from './auth.settings'
+import { LoginAttempt } from './schemas/login-attempt.schema'
+import { PasswordReset } from './schemas/password-reset.schema'
+import { RefreshToken } from './schemas/refresh-token.schema'
+import { Session } from './schemas/session.schema'
+import { PasswordResetService } from './services/password-reset.service'
 import { JwtAuthStrategy } from './strategies/jwt-auth.strategy'
 
 @Module({})
@@ -39,14 +45,18 @@ export class AuthModule {
 	 * ```
 	 */
 	static forRoot(authConfig?: AuthConfig): DynamicModule {
-		const strategyName = authConfig?.strategy || 'jwt'
-
 		return {
 			module: AuthModule,
 			global: true,
 			imports: [
 				DatabaseModule,
+				// Register auth schemas
+				DatabaseModule.forFeature(RefreshToken),
+				DatabaseModule.forFeature(Session),
+				DatabaseModule.forFeature(LoginAttempt),
+				DatabaseModule.forFeature(PasswordReset),
 				UserModule,
+				EventsModule,
 				SettingsModule.forFeature(AuthSettings),
 				// Always use 'jwt' as default strategy for guards (JwtAuthGuard)
 				PassportModule.register({ defaultStrategy: 'jwt' }),
@@ -102,6 +112,7 @@ export class AuthModule {
 					},
 					inject: [MagnetModuleOptions, UserService],
 				},
+				PasswordResetService,
 				AuthService,
 			],
 			exports: [AuthService, AUTH_STRATEGY, JwtModule, PassportModule],

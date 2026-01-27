@@ -22,13 +22,16 @@ export type EventName =
 	| 'user.created'
 	| 'user.updated'
 	| 'user.deleted'
+	| 'user.registered'
 	| 'user.login'
 	| 'user.logout'
 	| 'user.logout_all'
 	| 'user.password_changed'
 	| 'user.password_reset_requested'
+	| 'user.password_reset'
 	| 'user.password_reset_completed'
 	| 'user.email_verified'
+	| 'user.session_revoked'
 	// Auth events
 	| 'auth.token_refreshed'
 	| 'auth.session_created'
@@ -238,13 +241,16 @@ export interface EventPayloadMap {
 	'user.created': UserEventPayload
 	'user.updated': UserEventPayload & { changes: string[] }
 	'user.deleted': UserEventPayload
+	'user.registered': UserEventPayload
 	'user.login': UserEventPayload & { sessionId?: string }
 	'user.logout': UserEventPayload & { sessionId?: string }
 	'user.logout_all': UserEventPayload
 	'user.password_changed': UserEventPayload
 	'user.password_reset_requested': UserEventPayload & { token?: string }
+	'user.password_reset': UserEventPayload
 	'user.password_reset_completed': UserEventPayload
 	'user.email_verified': UserEventPayload
+	'user.session_revoked': UserEventPayload & { sessionId: string }
 
 	// Auth events
 	'auth.token_refreshed': AuthEventPayload
