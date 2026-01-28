@@ -21,6 +21,7 @@ export const TOKEN_EXPIRY_KEY = 'auth_token_expiry'
 type AuthError = {
 	message: string
 	code?: string
+	status?: number
 }
 
 export const useLogin = () => {
@@ -220,6 +221,8 @@ export const useAuth = () => {
 		return () => clearTimeout(refreshTimerId)
 	}, [token, tokenStorage, refreshToken])
 
+	const queryClient = useQueryClient()
+
 	const {
 		data: user,
 		isLoading: isUserLoading,
@@ -228,9 +231,24 @@ export const useAuth = () => {
 		queryKey: AUTH_USER_KEY,
 		queryFn: () => adapter.auth.getMe(),
 		enabled: !!token && !isInitializing,
-		retry: 1,
+		retry: false, // Don't retry 401s - immediate failure is expected
 		staleTime: 5 * 60 * 1000, // 5 minutes
 	})
+
+	// Watch for auth errors (401) and clear tokens
+	useEffect(() => {
+		if (
+			error &&
+			(error.status === 401 || error.message?.includes('Unauthorized'))
+		) {
+			// Clear all tokens on 401
+			tokenStorage.clearAll()
+			// Clear the token state to trigger re-render
+			setToken(null)
+			// Remove cached user data
+			queryClient.removeQueries({ queryKey: AUTH_USER_KEY })
+		}
+	}, [error, tokenStorage, queryClient])
 
 	const logout = useLogout()
 
@@ -253,7 +271,8 @@ export const useAuth = () => {
 		isLoading: isUserLoading || isInitializing,
 		isInitializing,
 		error,
-		isAuthenticated: !!user,
+		// User is authenticated only if we have user data AND no auth error
+		isAuthenticated: !!user && !error,
 		hasRole,
 		logout,
 		refreshToken: () => refreshToken(),

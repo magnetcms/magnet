@@ -59,11 +59,14 @@ export class AuthController {
 	 * Register a new user
 	 */
 	@Post('register')
-	async register(@Body() registerDto: RegisterDTO): Promise<AuthResult> {
+	async register(
+		@Body() registerDto: RegisterDTO,
+		@Req() req: Request,
+	): Promise<AuthResult> {
 		await this.authService.register(registerDto)
 		return this.authService.login(
 			{ email: registerDto.email, password: registerDto.password },
-			{},
+			this.getRequestContext(req),
 		)
 	}
 

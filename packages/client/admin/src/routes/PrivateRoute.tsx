@@ -9,7 +9,7 @@ type PrivateRouteProps = {
 export const PrivateRoute: React.FC<PrivateRouteProps> = ({
 	redirectTo = '/auth',
 }) => {
-	const { isAuthenticated, isLoading } = useAuth()
+	const { isAuthenticated, isLoading, error } = useAuth()
 
 	if (isLoading) {
 		return (
@@ -19,7 +19,8 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({
 		)
 	}
 
-	if (!isAuthenticated) {
+	// Redirect to auth if not authenticated or if there's an auth error (e.g., 401)
+	if (!isAuthenticated || error) {
 		return <Navigate to={redirectTo} replace />
 	}
 

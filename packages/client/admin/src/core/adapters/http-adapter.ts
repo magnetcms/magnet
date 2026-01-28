@@ -38,11 +38,32 @@ export interface HttpAdapterConfig {
 }
 
 /**
+ * Error with HTTP status code for proper error handling
+ */
+class HttpError extends Error {
+	status: number
+
+	constructor(message: string, status: number) {
+		super(message)
+		this.name = 'HttpError'
+		this.status = status
+	}
+}
+
+/**
  * Creates an HTTP adapter for the Magnet API
  * This is the default adapter that communicates with the NestJS backend
  */
 export function createHttpAdapter(config: HttpAdapterConfig): MagnetApiAdapter {
 	const { baseUrl, tokenStorage, onUnauthorized, onError } = config
+
+	// Default unauthorized handler: clear tokens
+	// The redirect should happen via useAuth watching for errors
+	const handleUnauthorized =
+		onUnauthorized ||
+		(() => {
+			tokenStorage.clearAll()
+		})
 
 	/**
 	 * Core request method that handles all HTTP communication
@@ -64,12 +85,15 @@ export function createHttpAdapter(config: HttpAdapterConfig): MagnetApiAdapter {
 		})
 
 		if (res.status === 401) {
-			onUnauthorized?.()
-			throw new Error('Unauthorized')
+			handleUnauthorized()
+			throw new HttpError('Unauthorized', 401)
 		}
 
 		if (!res.ok) {
-			const error = new Error(`Error ${res.status}: ${res.statusText}`)
+			const error = new HttpError(
+				`Error ${res.status}: ${res.statusText}`,
+				res.status,
+			)
 			onError?.(error)
 			throw error
 		}
@@ -539,12 +563,15 @@ export function createHttpAdapter(config: HttpAdapterConfig): MagnetApiAdapter {
 				})
 
 				if (res.status === 401) {
-					onUnauthorized?.()
-					throw new Error('Unauthorized')
+					handleUnauthorized()
+					throw new HttpError('Unauthorized', 401)
 				}
 
 				if (!res.ok) {
-					const error = new Error(`Upload failed: ${res.statusText}`)
+					const error = new HttpError(
+						`Upload failed: ${res.statusText}`,
+						res.status,
+					)
 					onError?.(error)
 					throw error
 				}
@@ -572,12 +599,15 @@ export function createHttpAdapter(config: HttpAdapterConfig): MagnetApiAdapter {
 				})
 
 				if (res.status === 401) {
-					onUnauthorized?.()
-					throw new Error('Unauthorized')
+					handleUnauthorized()
+					throw new HttpError('Unauthorized', 401)
 				}
 
 				if (!res.ok) {
-					const error = new Error(`Upload failed: ${res.statusText}`)
+					const error = new HttpError(
+						`Upload failed: ${res.statusText}`,
+						res.status,
+					)
 					onError?.(error)
 					throw error
 				}
