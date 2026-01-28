@@ -21,15 +21,39 @@ import { SettingField, Settings } from '@magnet-cms/common'
 	order: 20,
 	description:
 		'Configure file uploads, storage providers, and image processing',
+	sections: [
+		{
+			name: 'storage',
+			label: 'Storage',
+			icon: 'hard-drive',
+			description: 'Configure where files are stored',
+			order: 1,
+		},
+		{
+			name: 'limits',
+			label: 'Upload Limits',
+			icon: 'upload',
+			description: 'Configure file upload restrictions',
+			order: 2,
+		},
+		{
+			name: 'processing',
+			label: 'Image Processing',
+			icon: 'wand-2',
+			description: 'Configure automatic image optimization',
+			order: 3,
+		},
+		{
+			name: 'thumbnails',
+			label: 'Thumbnails',
+			icon: 'image',
+			description: 'Configure thumbnail generation',
+			order: 4,
+		},
+	],
 })
 export class MediaSettings {
-	@SettingField.Number({
-		label: 'Max File Size (MB)',
-		description: 'Maximum file size allowed for uploads in megabytes',
-		default: 10,
-	})
-	maxFileSize = 10
-
+	// Storage
 	@SettingField.Select({
 		label: 'Storage Provider',
 		description: 'Where files are stored',
@@ -40,6 +64,8 @@ export class MediaSettings {
 			{ label: 'UploadThing', value: 'uploadthing' },
 		],
 		default: 'local',
+		section: 'storage',
+		order: 1,
 	})
 	storageProvider = 'local'
 
@@ -47,8 +73,20 @@ export class MediaSettings {
 		label: 'Upload Directory',
 		description: 'Base directory for file uploads (local storage)',
 		default: 'uploads',
+		section: 'storage',
+		order: 2,
 	})
 	uploadDirectory = 'uploads'
+
+	// Upload Limits
+	@SettingField.Number({
+		label: 'Max File Size (MB)',
+		description: 'Maximum file size allowed for uploads in megabytes',
+		default: 10,
+		section: 'limits',
+		order: 1,
+	})
+	maxFileSize = 10
 
 	@SettingField.Select({
 		label: 'Allowed Image Types',
@@ -62,41 +100,17 @@ export class MediaSettings {
 			{ label: 'AVIF', value: 'avif' },
 		],
 		default: 'jpg',
+		section: 'limits',
+		order: 2,
 	})
 	allowedImageTypes = 'jpg'
-
-	@SettingField.Boolean({
-		label: 'Auto-optimize Images',
-		description: 'Automatically optimize images on upload',
-		default: true,
-	})
-	autoOptimize = true
-
-	@SettingField.Number({
-		label: 'Image Quality (%)',
-		description: 'Quality level for image optimization (1-100)',
-		default: 80,
-	})
-	imageQuality = 80
-
-	@SettingField.Boolean({
-		label: 'Generate Thumbnails',
-		description: 'Automatically generate thumbnails for images',
-		default: true,
-	})
-	generateThumbnails = true
-
-	@SettingField.Number({
-		label: 'Thumbnail Width',
-		description: 'Width of generated thumbnails in pixels',
-		default: 200,
-	})
-	thumbnailWidth = 200
 
 	@SettingField.Number({
 		label: 'Max Image Width',
 		description: 'Maximum width for uploaded images (0 = no limit)',
 		default: 2048,
+		section: 'limits',
+		order: 3,
 	})
 	maxImageWidth = 2048
 
@@ -104,13 +118,55 @@ export class MediaSettings {
 		label: 'Max Image Height',
 		description: 'Maximum height for uploaded images (0 = no limit)',
 		default: 2048,
+		section: 'limits',
+		order: 4,
 	})
 	maxImageHeight = 2048
+
+	// Image Processing
+	@SettingField.Boolean({
+		label: 'Auto-optimize Images',
+		description: 'Automatically optimize images on upload',
+		default: true,
+		section: 'processing',
+		order: 1,
+	})
+	autoOptimize = true
+
+	@SettingField.Number({
+		label: 'Image Quality (%)',
+		description: 'Quality level for image optimization (1-100)',
+		default: 80,
+		section: 'processing',
+		order: 2,
+	})
+	imageQuality = 80
 
 	@SettingField.Boolean({
 		label: 'Preserve Original',
 		description: 'Keep original file when optimizing',
 		default: false,
+		section: 'processing',
+		order: 3,
 	})
 	preserveOriginal = false
+
+	// Thumbnails
+	@SettingField.Boolean({
+		label: 'Generate Thumbnails',
+		description: 'Automatically generate thumbnails for images',
+		default: true,
+		section: 'thumbnails',
+		order: 1,
+	})
+	generateThumbnails = true
+
+	@SettingField.Number({
+		label: 'Thumbnail Width',
+		description: 'Width of generated thumbnails in pixels',
+		default: 200,
+		section: 'thumbnails',
+		order: 2,
+	})
+	thumbnailWidth = 200
 }

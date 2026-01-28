@@ -175,6 +175,7 @@ export class MetadataExtractorService {
 					icon: settingsOptions.icon,
 					description: settingsOptions.description,
 					order: settingsOptions.order,
+					sections: settingsOptions.sections,
 				},
 			}),
 		}
@@ -526,6 +527,8 @@ export class MetadataExtractorService {
 		if (options.hidden) uiOptions.hidden = options.hidden
 		if (options.readonly) uiOptions.readonly = options.readonly
 		if (options.default !== undefined) uiOptions.default = options.default
+		if (options.order !== undefined) uiOptions.order = options.order
+		if (options.section) uiOptions.section = options.section
 
 		// Handle select options
 		if (type === 'select' && 'options' in options) {

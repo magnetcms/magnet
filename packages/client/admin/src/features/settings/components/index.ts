@@ -1,6 +1,15 @@
-export { ConfigurationForm, type ConfigurationFormRef } from './ConfigurationForm'
+export {
+	ConfigurationForm,
+	type ConfigurationFormRef,
+} from './ConfigurationForm'
+export {
+	DynamicSettingsForm,
+	type DynamicSettingsFormRef,
+} from './DynamicSettingsForm'
+export { ProfilePage } from './ProfilePage'
+export { SettingsDocumentationPanel } from './SettingsDocumentationPanel'
+export { SettingsFieldRenderer } from './SettingsFieldRenderer'
 export { SettingsList, type SettingsSectionId } from './SettingsList'
 export { SettingsPage } from './SettingsPage'
-export { ProfilePage } from './ProfilePage'
+export { SettingsSectionCard } from './SettingsSectionCard'
 export { UsersPlaceholder } from './UsersPlaceholder'
-export { SettingsDocumentationPanel } from './SettingsDocumentationPanel'

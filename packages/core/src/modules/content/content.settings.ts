@@ -20,8 +20,66 @@ import { SettingField, Settings } from '@magnet-cms/common'
 	icon: 'file-text',
 	order: 15,
 	description: 'Configure content editing, publishing, and versioning behavior',
+	sections: [
+		{
+			name: 'editing',
+			label: 'Editing',
+			icon: 'edit',
+			description: 'Configure content editing behavior',
+			order: 1,
+		},
+		{
+			name: 'publishing',
+			label: 'Publishing',
+			icon: 'send',
+			description: 'Configure content publishing workflow',
+			order: 2,
+		},
+		{
+			name: 'versioning',
+			label: 'Versioning',
+			icon: 'history',
+			description: 'Configure version history settings',
+			order: 3,
+		},
+		{
+			name: 'i18n',
+			label: 'Internationalization',
+			icon: 'languages',
+			description: 'Configure multi-language content settings',
+			order: 4,
+		},
+		{
+			name: 'deletion',
+			label: 'Deletion',
+			icon: 'trash-2',
+			description: 'Configure content deletion behavior',
+			order: 5,
+			variant: 'danger',
+		},
+	],
 })
 export class ContentSettings {
+	// Editing
+	@SettingField.Boolean({
+		label: 'Enable Auto-save',
+		description: 'Automatically save content while editing',
+		default: true,
+		section: 'editing',
+		order: 1,
+	})
+	autoSave = true
+
+	@SettingField.Number({
+		label: 'Auto-save Interval (seconds)',
+		description: 'How often to auto-save content',
+		default: 30,
+		section: 'editing',
+		order: 2,
+	})
+	autoSaveInterval = 30
+
+	// Publishing
 	@SettingField.Select({
 		label: 'Default Status',
 		description: 'Initial status for new content',
@@ -30,48 +88,55 @@ export class ContentSettings {
 			{ label: 'Published', value: 'published' },
 		],
 		default: 'draft',
+		section: 'publishing',
+		order: 1,
 	})
 	defaultStatus = 'draft'
-
-	@SettingField.Boolean({
-		label: 'Enable Auto-save',
-		description: 'Automatically save content while editing',
-		default: true,
-	})
-	autoSave = true
-
-	@SettingField.Number({
-		label: 'Auto-save Interval (seconds)',
-		description: 'How often to auto-save content',
-		default: 30,
-	})
-	autoSaveInterval = 30
 
 	@SettingField.Boolean({
 		label: 'Require Publish Approval',
 		description: 'Require approval before content can be published',
 		default: false,
+		section: 'publishing',
+		order: 2,
 	})
 	requireApproval = false
+
+	@SettingField.Boolean({
+		label: 'Enable Scheduling',
+		description: 'Allow content to be scheduled for future publishing',
+		default: true,
+		section: 'publishing',
+		order: 3,
+	})
+	enableScheduling = true
+
+	// Versioning
+	@SettingField.Boolean({
+		label: 'Enable Versioning',
+		description: 'Track content changes with version history',
+		default: true,
+		section: 'versioning',
+		order: 1,
+	})
+	enableVersioning = true
 
 	@SettingField.Number({
 		label: 'Max Revisions to Keep',
 		description: 'Maximum number of content revisions to store',
 		default: 20,
+		section: 'versioning',
+		order: 2,
 	})
 	maxRevisions = 20
 
-	@SettingField.Boolean({
-		label: 'Enable Versioning',
-		description: 'Track content changes with version history',
-		default: true,
-	})
-	enableVersioning = true
-
+	// Internationalization
 	@SettingField.Boolean({
 		label: 'Enable i18n',
 		description: 'Enable internationalization for content',
 		default: true,
+		section: 'i18n',
+		order: 1,
 	})
 	enableI18n = true
 
@@ -79,6 +144,8 @@ export class ContentSettings {
 		label: 'Default Locale',
 		description: 'Default language for content',
 		default: 'en',
+		section: 'i18n',
+		order: 2,
 	})
 	defaultLocale = 'en'
 
@@ -86,20 +153,18 @@ export class ContentSettings {
 		label: 'Require All Locales',
 		description: 'Require content to be translated to all enabled locales',
 		default: false,
+		section: 'i18n',
+		order: 3,
 	})
 	requireAllLocales = false
 
-	@SettingField.Boolean({
-		label: 'Enable Scheduling',
-		description: 'Allow content to be scheduled for future publishing',
-		default: true,
-	})
-	enableScheduling = true
-
+	// Deletion
 	@SettingField.Boolean({
 		label: 'Enable Soft Delete',
 		description: 'Move deleted content to trash instead of permanent deletion',
 		default: true,
+		section: 'deletion',
+		order: 1,
 	})
 	enableSoftDelete = true
 
@@ -107,6 +172,8 @@ export class ContentSettings {
 		label: 'Trash Retention (days)',
 		description: 'How long to keep deleted content in trash',
 		default: 30,
+		section: 'deletion',
+		order: 2,
 	})
 	trashRetentionDays = 30
 }

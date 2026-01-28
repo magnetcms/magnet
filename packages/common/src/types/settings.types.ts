@@ -56,6 +56,29 @@ export interface SettingsBulkUpdatePayload {
 export type SettingsRecord = Record<string, SettingValue>
 
 /**
+ * Section variant for special styling (e.g., danger zone)
+ */
+export type SettingSectionVariant = 'default' | 'danger'
+
+/**
+ * Section definition for grouping settings fields visually
+ */
+export interface SettingSectionDefinition {
+	/** Unique section identifier */
+	name: string
+	/** Display label for the section */
+	label: string
+	/** Icon identifier (lucide icon name) */
+	icon?: string
+	/** Description of the section */
+	description?: string
+	/** Display order within the settings group */
+	order?: number
+	/** Visual variant for the section */
+	variant?: SettingSectionVariant
+}
+
+/**
  * Options for the @Settings() class decorator
  */
 export interface SettingsDecoratorOptions {
@@ -69,6 +92,8 @@ export interface SettingsDecoratorOptions {
 	description?: string
 	/** Display order in settings list */
 	order?: number
+	/** Section definitions for grouping fields visually */
+	sections?: SettingSectionDefinition[]
 }
 
 /**
@@ -87,6 +112,8 @@ export interface SettingFieldBaseOptions {
 	hidden?: boolean
 	/** Make read-only in admin UI */
 	readonly?: boolean
+	/** Section this field belongs to (references section name) */
+	section?: string
 }
 
 /**
